@@ -39,12 +39,12 @@
       --inactive-lamp: #e6e8e2;
       --progress-start: #75a98a;
       --progress-end: #347455;
-      --priority-low-surface: #eff8f5;
-      --priority-low-border: #d8e9e1;
-      --priority-medium-surface: #fff7e8;
-      --priority-medium-border: #efe0bf;
-      --priority-high-surface: #fff0ec;
-      --priority-high-border: #eed8d2;
+      --priority-low-surface: #f6fbf9;
+      --priority-low-border: #e0eee7;
+      --priority-medium-surface: #fffbf2;
+      --priority-medium-border: #f2e9d4;
+      --priority-high-surface: #fff6f3;
+      --priority-high-border: #f1e3df;
       --low-text: #27697d;
       --low-bg: #eaf3f5;
       --low-border: #c8e0e5;
@@ -1024,7 +1024,7 @@
             <div class="confetti-layer" aria-hidden="true"></div>
             <button type="button" class="drag-handle" aria-label="${escapeText(e.topic)}を並べ替え">⠿</button>
             <div class="item-main"><div class="item-top">
-              <span class="subject">${escapeText(e.subject)}</span>
+              <span class="subject">${escapeText(e.subject === '歴史総合・日本史探究' ? '日本史' : e.subject)}</span>
               <select class="priority-select" data-priority="${e.priority}" data-priority-id="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}の優先度">
                 <option value="low" ${e.priority === 'low' ? 'selected' : ''}>低</option>
                 <option value="medium" ${e.priority === 'medium' ? 'selected' : ''}>中</option>

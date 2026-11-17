@@ -1,4 +1,4 @@
-const CACHE_NAME = 'review-stock-v10';
+const CACHE_NAME = 'review-stock-v11';
 const APP_FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -25,3 +25,4 @@ self.addEventListener('fetch', event => {
     }).catch(() => caches.match('./index.html')))
   );
 });
+

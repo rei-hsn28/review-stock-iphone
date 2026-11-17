@@ -39,12 +39,12 @@
       --inactive-lamp: #e6e8e2;
       --progress-start: #75a98a;
       --progress-end: #347455;
-      --priority-low-surface: #f8fbf9;
-      --priority-low-border: #e6eee8;
-      --priority-medium-surface: #fffdf8;
-      --priority-medium-border: #eee9dc;
-      --priority-high-surface: #fff9f8;
-      --priority-high-border: #f0e4e1;
+      --priority-low-surface: #eff8f5;
+      --priority-low-border: #d8e9e1;
+      --priority-medium-surface: #fff7e8;
+      --priority-medium-border: #efe0bf;
+      --priority-high-surface: #fff0ec;
+      --priority-high-border: #eed8d2;
       --low-text: #27697d;
       --low-bg: #eaf3f5;
       --low-border: #c8e0e5;
@@ -1040,8 +1040,8 @@
             </div>
             ${elapsedMarkup(e.reviews)}
             <div class="review-actions">
-              <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
               <button type="button" class="review-decrease" data-unreview="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}の復習回数を1回戻す" title="復習回数を1回戻す" ${count === 0 ? 'disabled' : ''}></button>
+              <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
             </div>
             <button type="button" class="delete-btn" data-delete="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}を削除" title="削除">削除</button>
           </article>`;

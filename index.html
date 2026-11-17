@@ -229,6 +229,15 @@
     .empty.visible { display: block; }
     .toast { position: fixed; z-index: 12; left: 50%; top: calc(12px + env(safe-area-inset-top)); max-width: calc(100% - 28px); padding: 10px 14px; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 11px; background: var(--paper); color: var(--ink); box-shadow: var(--shadow); font-size: 12px; }
     .toast[hidden] { display: none; }
+    .transfer-dialog { width: min(360px, calc(100% - 32px)); margin: auto; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
+    .transfer-dialog::backdrop { background: rgba(13, 20, 16, .42); backdrop-filter: blur(3px); }
+    .transfer-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .transfer-dialog h2 { margin: 0; font-size: 17px; }
+    .transfer-dialog p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .transfer-actions { display: grid; gap: 9px; margin-top: 17px; }
+    .transfer-action { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--control-bg); color: var(--ink); text-align: left; }
+    .transfer-action.primary { border-color: var(--green); background: var(--green); color: #fff; font-weight: 700; }
+    .transfer-close { flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--control-bg); color: var(--soft-ink); font-size: 20px; line-height: 1; }
     footer { margin-top: 20px; text-align: right; color: var(--muted); font-size: 10px; }
     @media (max-width: 650px) {
       .shell { width: min(100% - 24px, 560px); padding: calc(22px + env(safe-area-inset-top)) 0 calc(42px + env(safe-area-inset-bottom)); }
@@ -273,6 +282,12 @@
       .priority-option { min-width: 54px; height: 40px; }
       .undo-banner { bottom: calc(10px + env(safe-area-inset-bottom)); }
     }
+    @media (max-width: 360px) {
+      header { align-items: center; gap: 10px; }
+      h1 { font-size: 26px; }
+      .header-actions { gap: 4px; }
+      .header-icon { width: 34px; height: 34px; }
+    }
     @media (prefers-reduced-motion: reduce) {
       .confetti-piece { animation-duration: 1ms; }
       .image-spinner { animation-duration: 1ms; }
@@ -287,7 +302,7 @@
         <p class="eyebrow">EXAM REVIEW</p>
         <h1>復習ストック</h1>
       </div>
-      <div class="header-actions" aria-label="表示と音の設定">
+      <div class="header-actions" aria-label="表示・音・データの設定">
         <button id="theme-toggle" class="header-icon" type="button" aria-label="ダークモードに切り替え" title="テーマ">
           <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.6 8.6 0 1 0 20.5 15.2Z"></path></svg>
           <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path></svg>
@@ -296,8 +311,23 @@
           <svg id="sound-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"></path></svg>
           <svg id="sound-icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="m17 9 5 6m0-6-5 6"></path></svg>
         </button>
+        <button id="transfer-toggle" class="header-icon" type="button" aria-label="リストデータを移行する" title="データの移行" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13m0 0-3-3m3 3-3 3M17 17H4m0 0 3-3m-3 3 3 3"></path></svg>
+        </button>
       </div>
     </header>
+
+    <dialog id="transfer-dialog" class="transfer-dialog" aria-labelledby="transfer-title">
+      <div class="transfer-dialog-head">
+        <div><h2 id="transfer-title">リストデータの移行</h2><p>ファイルで別の端末に受け渡せます。</p></div>
+        <button id="transfer-close" class="transfer-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="transfer-actions">
+        <button id="export-data" class="transfer-action" type="button">この端末から書き出す</button>
+        <button id="import-data" class="transfer-action primary" type="button">ファイルから取り込む</button>
+      </div>
+      <input id="transfer-file" type="file" accept=".json,application/json" hidden>
+    </dialog>
 
     <section class="subject-progress" aria-label="科目ごとの復習進捗">
       <div class="progress-heading"><h2>科目別の復習進捗</h2><p>1ポイントにつき3回が目安</p></div>
@@ -429,6 +459,94 @@
       function persist() {
         try { localStorage.setItem(key, JSON.stringify(entries)); }
         catch { alert('保存できませんでした。ブラウザの保存領域をご確認ください。'); }
+      }
+      function normalizeTransferEntry(item, index) {
+        if (!item || typeof item !== 'object' || !subjects.includes(item.subject) || typeof item.topic !== 'string') return null;
+        const topic = item.topic.trim();
+        if (!topic || topic.length > 160) return null;
+        const reviews = Array.isArray(item.reviews)
+          ? item.reviews.filter(date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)).slice(0, 500)
+          : [];
+        const createdAt = Number(item.createdAt);
+        const imageLookupAt = Number(item.imageLookupAt);
+        const imageSearchVersion = Number(item.imageSearchVersion);
+        const customOrder = Number(item.customOrder);
+        return {
+          id: String(item.id || makeId()).slice(0, 120),
+          subject: item.subject,
+          topic,
+          reviews,
+          priority: ['low', 'medium', 'high'].includes(item.priority) ? item.priority : 'medium',
+          image: normalizeStoredImage(item.image, topic),
+          imageLookupAt: Number.isFinite(imageLookupAt) && item.imageLookupAt != null ? imageLookupAt : 0,
+          imageSearchVersion: Number.isFinite(imageSearchVersion) && item.imageSearchVersion != null ? Math.min(IMAGE_SEARCH_VERSION, Math.max(0, Math.floor(imageSearchVersion))) : 0,
+          createdAt: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : Date.now() + index,
+          customOrder: Number.isFinite(customOrder) && customOrder >= 0 ? customOrder : index
+        };
+      }
+      function mergeReviewHistory(current, imported) {
+        const counts = new Map();
+        [current, imported].forEach(history => {
+          const localCounts = new Map();
+          history.forEach(date => localCounts.set(date, (localCounts.get(date) || 0) + 1));
+          localCounts.forEach((count, date) => counts.set(date, Math.max(counts.get(date) || 0, count)));
+        });
+        return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).flatMap(([date, count]) => Array(count).fill(date));
+      }
+      function mergeImportedEntries(data) {
+        if (!data || data.format !== 'exam-review-stock-transfer' || data.version !== 1 || !Array.isArray(data.entries) || data.entries.length > 2000) {
+          throw new Error('Invalid review list file');
+        }
+        const imported = data.entries.map(normalizeTransferEntry).filter(Boolean);
+        const byTask = new Map(entries.map(item => [`${item.subject}\u0000${item.topic.normalize('NFKC').replace(/\s+/g, ' ').toLocaleLowerCase('ja')}`, item]));
+        const usedIds = new Set(entries.map(item => item.id));
+        let nextOrder = entries.length ? Math.max(...entries.map(item => item.customOrder)) + 1 : 0;
+        let added = 0;
+        let merged = 0;
+        imported.forEach(item => {
+          const taskKey = `${item.subject}\u0000${item.topic.normalize('NFKC').replace(/\s+/g, ' ').toLocaleLowerCase('ja')}`;
+          const current = byTask.get(taskKey);
+          if (current) {
+            current.reviews = mergeReviewHistory(current.reviews, item.reviews);
+            const rank = { low: 0, medium: 1, high: 2 };
+            if (rank[item.priority] > rank[current.priority]) current.priority = item.priority;
+            if (!current.image && item.image) current.image = item.image;
+            if (!current.imageLookupAt && item.imageLookupAt) current.imageLookupAt = item.imageLookupAt;
+            current.imageSearchVersion = Math.min(Number(current.imageSearchVersion) || 0, item.imageSearchVersion);
+            merged++;
+            return;
+          }
+          while (!item.id || usedIds.has(item.id)) item.id = makeId();
+          item.customOrder = nextOrder++;
+          usedIds.add(item.id);
+          entries.push(item);
+          byTask.set(taskKey, item);
+          added++;
+        });
+        return { added, merged, skipped: data.entries.length - imported.length };
+      }
+      function exportListData() {
+        const payload = {
+          format: 'exam-review-stock-transfer',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          entries: entries.map(({ id, subject, topic, reviews, priority, image, imageLookupAt, imageSearchVersion, createdAt, customOrder }) => ({
+            id, subject, topic, reviews, priority, image, imageLookupAt, imageSearchVersion, createdAt, customOrder
+          }))
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        link.href = url;
+        link.download = `review-stock-${date}.json`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        $('transfer-dialog').close();
+        showToast(`${entries.length}件を書き出したよ`);
       }
       function makeId() { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
       function effectiveTheme() { return themeMode === 'auto' ? (systemTheme.matches ? 'dark' : 'light') : themeMode; }
@@ -1030,6 +1148,39 @@
         soundEnabled = !soundEnabled;
         try { localStorage.setItem(soundKey, soundEnabled ? 'on' : 'off'); } catch {}
         setSoundButton();
+      });
+      const transferDialog = $('transfer-dialog');
+      const transferFile = $('transfer-file');
+      $('transfer-toggle').addEventListener('click', () => transferDialog.showModal());
+      $('transfer-close').addEventListener('click', () => transferDialog.close());
+      transferDialog.addEventListener('click', event => { if (event.target === transferDialog) transferDialog.close(); });
+      $('export-data').addEventListener('click', exportListData);
+      $('import-data').addEventListener('click', () => transferFile.click());
+      transferFile.addEventListener('change', async () => {
+        const file = transferFile.files?.[0];
+        if (!file) return;
+        try {
+          if (file.size > 5 * 1024 * 1024) throw new Error('Transfer file is too large');
+          const text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('Could not read transfer file'));
+            reader.readAsText(file, 'utf-8');
+          });
+          const result = mergeImportedEntries(JSON.parse(text));
+          if (!result.added && !result.merged) {
+            showToast('有効な復習項目が見つからなかった');
+            return;
+          }
+          persist();
+          activeSubject = 'すべて';
+          render();
+          queueMissingImages();
+          transferDialog.close();
+          showToast(`新規${result.added}件・統合${result.merged}件を取り込んだよ`);
+        } catch {
+          showToast('復習ストックの書き出しファイルを選んでね');
+        } finally { transferFile.value = ''; }
       });
       document.addEventListener('pointerdown', event => {
         if (event.target.closest('select')) playSlide();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'review-stock-v1';
+const CACHE_NAME = 'review-stock-v2';
 const APP_FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', event => {

@@ -159,7 +159,7 @@
     .filter:hover { border-color: #a9b8ad; }
     .filter.active { color: var(--green-dark); background: var(--green-pale); border-color: var(--line); font-weight: 700; }
     .items { display: grid; gap: 9px; }
-    .item { display: grid; grid-template-columns: minmax(0, 1fr) 130px 112px 94px; align-items: center; gap: 16px; padding: 15px 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 5px 18px rgba(41,48,42,.025); touch-action: pan-y; transition: transform .18s ease, opacity .18s ease, background .18s ease; }
+    .item { display: grid; grid-template-columns: minmax(0, 1fr) 130px 112px 132px; align-items: center; gap: 16px; padding: 15px 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 5px 18px rgba(41,48,42,.025); touch-action: pan-y; transition: transform .18s ease, opacity .18s ease, background .18s ease; }
     .item-main { min-width: 0; }
     .item-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .subject { display: inline-flex; padding: 4px 8px; border-radius: 6px; background: var(--soft-surface); color: var(--soft-ink); font-size: 10px; font-weight: 700; }
@@ -199,7 +199,14 @@
     .elapsed span { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
     .elapsed.never strong { color: var(--amber); }
     .elapsed.today strong { color: var(--green); }
+    .review-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
     .review-btn { min-width: 94px; min-height: 38px; padding: 0 12px; border-radius: 10px; font-size: 12px; }
+    .review-decrease { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); opacity: .48; transition: background .15s, opacity .15s, transform .15s; }
+    .review-decrease::before { content: ""; display: block; width: 12px; height: 2px; border-radius: 2px; background: currentColor; }
+    .review-decrease:hover:not(:disabled) { background: var(--soft-surface); opacity: .9; }
+    .review-decrease:active:not(:disabled) { transform: scale(.92); }
+    .review-decrease:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; opacity: 1; }
+    .review-decrease:disabled { cursor: default; opacity: .16; }
     .item[data-priority="low"] { background: var(--priority-low-surface); border-color: var(--priority-low-border); }
     .item[data-priority="medium"] { background: var(--priority-medium-surface); border-color: var(--priority-medium-border); }
     .item[data-priority="high"] { background: var(--priority-high-surface); border-color: var(--priority-high-border); }
@@ -255,11 +262,11 @@
       .item-main { grid-column: 1 / 3; padding-right: 22px; }
       .review-meter { grid-column: 1; grid-row: 2; }
       .elapsed { grid-column: 1; grid-row: 3; }
-      .review-btn { grid-column: 2; grid-row: 2 / 4; }
+      .review-actions { grid-column: 2; grid-row: 2 / 4; justify-self: end; }
       .elapsed { text-align: left; min-width: 0; }
       .elapsed strong, .elapsed span { display: inline; }
       .elapsed span { margin-left: 5px; }
-      .review-btn { justify-self: end; min-height: 44px; }
+      .review-btn { min-height: 44px; }
       .delete-btn { display: none !important; }
       .drag-handle { left: 6px; width: 26px; }
       .item.custom-sort { padding-left: 34px; }
@@ -777,7 +784,10 @@
               ${count >= 3 ? '<span class="meter-note">目安クリア</span>' : ''}
             </div>
             ${elapsedMarkup(e.reviews)}
-            <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
+            <div class="review-actions">
+              <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
+              <button type="button" class="review-decrease" data-unreview="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}の復習回数を1回戻す" title="復習回数を1回戻す" ${count === 0 ? 'disabled' : ''}></button>
+            </div>
             <button type="button" class="delete-btn" data-delete="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}を削除" title="削除">削除</button>
           </article>`;
         }).join('');
@@ -791,6 +801,11 @@
           const reachesTarget = item.reviews.length === 2;
           item.reviews.push(todayKey()); persist(); render();
           if (reachesTarget) { celebrateItem(item.id); playFanfare(); }
+        }));
+        $('items').querySelectorAll('[data-unreview]').forEach(btn => btn.addEventListener('click', () => {
+          const item = entries.find(e => e.id === btn.dataset.unreview);
+          if (!item || !item.reviews.length) return;
+          item.reviews.pop(); persist(); render();
         }));
         $('items').querySelectorAll('[data-priority-id]').forEach(select => select.addEventListener('change', () => {
           const item = entries.find(e => e.id === select.dataset.priorityId);

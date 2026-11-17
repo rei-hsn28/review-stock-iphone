@@ -166,13 +166,17 @@
     .topic-with-image { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
     .topic { min-width: 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
     .topic-image-button, .topic-image-link { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--control-bg); color: var(--muted); }
-    .topic-image-button { padding: 0; }
+    .topic-image-button { position: relative; padding: 0; }
     .topic-image-button:hover { border-color: var(--green); color: var(--green); background: var(--green-pale); }
     .topic-image-button svg { width: 18px; height: 18px; }
+    .topic-image-button:not(:disabled)::after { content: "+"; position: absolute; right: 2px; bottom: 1px; display: grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: var(--paper); color: var(--green); font-size: 11px; font-weight: 800; line-height: 1; }
     .topic-image-link img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .topic-visual { position: relative; flex: 0 0 40px; width: 40px; height: 40px; }
     .topic-image-refresh { position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 19px; height: 19px; padding: 0; border: 1px solid var(--paper); border-radius: 50%; background: var(--green); color: #fff; font-size: 13px; line-height: 1; }
     .topic-image-refresh:disabled { opacity: .6; }
+    .image-spinner { display: block; width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: image-spin .7s linear infinite; }
+    .topic-image-refresh .image-spinner { width: 11px; height: 11px; border-width: 1.5px; border-color: rgba(255,255,255,.45); border-top-color: #fff; }
+    @keyframes image-spin { to { transform: rotate(360deg); } }
     .priority-select { width: auto; min-width: 54px; max-width: 76px; height: 27px; padding: 0 6px 0 8px; border-radius: 7px; font-size: 10px; }
     .priority-select[data-priority="low"] { color: var(--low-text); background-color: var(--low-bg); border-color: var(--low-border); }
     .priority-select[data-priority="medium"] { color: var(--medium-text); background-color: var(--medium-bg); border-color: var(--medium-border); }
@@ -261,6 +265,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .confetti-piece { animation-duration: 1ms; }
+      .image-spinner { animation-duration: 1ms; }
       .item { transition: none; }
     }
   </style>
@@ -354,6 +359,11 @@
       } catch {}
       let audioContext = null;
       let toastTimer = null;
+      let imageQueueRunning = false;
+      let automaticImageErrorNotified = false;
+      const imageQueue = [];
+      const queuedImageIds = new Set();
+      const imageRequests = new Map();
       let activeSubject = 'すべて';
       let activeSort = 'elapsed';
       let selectedPriority = 'medium';
@@ -372,9 +382,10 @@
             id: String(x.id || makeId()), subject: x.subject, topic: x.topic,
             reviews: Array.isArray(x.reviews) ? x.reviews.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : [],
             priority: ['low', 'medium', 'high'].includes(x.priority) ? x.priority : 'medium',
-            image: x.image && typeof x.image === 'object' && /^https:\/\/upload\.wikimedia\.org\//.test(x.image.url || '') && /^https:\/\/ja\.wikipedia\.org\/wiki\//.test(x.image.article || '')
-              ? { url: x.image.url, article: x.image.article, title: String(x.image.title || x.topic).slice(0, 140) }
+            image: x.image && typeof x.image === 'object' && /^https:\/\/(?:upload|thumb)\.wikimedia\.org\//.test(x.image.url || '') && /^https:\/\/ja\.wikipedia\.org\/wiki\//.test(x.image.article || '')
+              ? { url: String(x.image.url), article: String(x.image.article), title: String(x.image.title || x.topic).slice(0, 140) }
               : null,
+            imageLookupAt: Number.isFinite(Number(x.imageLookupAt)) && x.imageLookupAt != null ? Number(x.imageLookupAt) : 0,
             createdAt: Number.isFinite(Number(x.createdAt)) && x.createdAt != null ? Number(x.createdAt) : Date.now() - (saved.length - index) * 1000,
             customOrder: Number.isFinite(Number(x.customOrder)) && x.customOrder != null ? Number(x.customOrder) : index
           })) : [];
@@ -475,10 +486,11 @@
         const response = await fetch(`https://ja.wikipedia.org/w/api.php?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
         if (!response.ok) throw new Error('image lookup failed');
         const data = await response.json();
+        if (data.error) throw new Error(data.error.info || 'image lookup failed');
         const pages = Object.values(data.query?.pages || {}).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
         for (const page of pages) {
           const url = page.thumbnail?.source;
-          if (!url || !/^https:\/\/upload\.wikimedia\.org\//.test(url)) continue;
+          if (!url || !/^https:\/\/(?:upload|thumb)\.wikimedia\.org\//.test(url)) continue;
           return {
             url,
             title: String(page.title || topic).slice(0, 140),
@@ -487,24 +499,60 @@
         }
         return null;
       }
-      async function attachRelatedImage(id) {
+      async function requestRelatedImage(id, automatic = false) {
+        if (imageRequests.has(id)) return imageRequests.get(id);
         const item = entries.find(entry => entry.id === id);
         if (!item) return;
-        const buttons = [...$('items').querySelectorAll(`[data-image-id="${CSS.escape(id)}"]`)];
-        buttons.forEach(button => { button.disabled = true; });
-        try {
-          const image = await findRelatedImage(item.topic);
-          if (!image) { showToast('関連画像が見つからなかった'); return; }
-          if (!entries.includes(item)) return;
-          item.image = image;
-          persist();
-          render();
-          showToast(`「${image.title}」の画像を追加したよ`);
-        } catch {
-          showToast('画像を取得できなかった。通信状態を確認してね');
-        } finally {
-          $('items').querySelectorAll(`[data-image-id="${CSS.escape(id)}"]`).forEach(button => { button.disabled = false; });
+        const request = (async () => {
+          item.imageLoading = true;
+          updateImageMarkup(item);
+          try {
+            const image = await findRelatedImage(item.topic);
+            if (!entries.includes(item)) return;
+            item.imageLookupAt = Date.now();
+            if (image) item.image = image;
+            persist();
+            if (!automatic) showToast(image ? `「${image.title}」の画像を追加したよ` : '関連画像が見つからなかった');
+          } catch {
+            if (entries.includes(item)) {
+              item.imageLookupAt = Date.now();
+              persist();
+            }
+            if (!automatic) showToast('画像を取得できなかった。通信状態を確認してね');
+            else if (!automaticImageErrorNotified) {
+              automaticImageErrorNotified = true;
+              showToast('画像の自動取得に失敗。通信状態を確認してね');
+            }
+          } finally {
+            item.imageLoading = false;
+            if (entries.includes(item)) updateImageMarkup(item);
+          }
+        })();
+        imageRequests.set(id, request);
+        try { await request; }
+        finally { if (imageRequests.get(id) === request) imageRequests.delete(id); }
+      }
+      function queueMissingImages() {
+        entries.forEach(item => {
+          if (!item.image && !item.imageLookupAt && !queuedImageIds.has(item.id)) {
+            imageQueue.push(item.id);
+            queuedImageIds.add(item.id);
+          }
+        });
+        if (!imageQueueRunning && imageQueue.length) processImageQueue();
+      }
+      async function processImageQueue() {
+        imageQueueRunning = true;
+        while (imageQueue.length) {
+          const id = imageQueue.shift();
+          queuedImageIds.delete(id);
+          const item = entries.find(entry => entry.id === id);
+          if (item && !item.image && !item.imageLookupAt) {
+            await requestRelatedImage(id, true);
+            if (imageQueue.length) await new Promise(resolve => setTimeout(resolve, 180));
+          }
         }
+        imageQueueRunning = false;
       }
       function todayKey() {
         const d = new Date();
@@ -671,12 +719,20 @@
           const title = escapeText(item.image.title);
           return `<span class="topic-visual">
             <a class="topic-image-link" href="${escapeText(item.image.article)}" target="_blank" rel="noopener noreferrer" title="Wikipedia: ${title}"><img src="${escapeText(item.image.url)}" alt="${title}" loading="lazy" decoding="async"></a>
-            <button class="topic-image-refresh" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の画像を探し直す" title="別の画像を探す">↻</button>
+            <button class="topic-image-refresh" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の画像を探し直す" title="別の画像を探す" ${item.imageLoading ? 'disabled aria-busy="true"' : ''}>${item.imageLoading ? '<span class="image-spinner" aria-hidden="true"></span>' : '↻'}</button>
           </span>`;
         }
-        return `<button class="topic-image-button" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の関連画像を探す" title="タップしてWikipediaから探す">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m4 17 5-5 3.2 3.2 2.3-2.3L20 18"></path></svg>
+        return `<button class="topic-image-button" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の関連画像を探す" title="Wikipediaから画像を取得" ${item.imageLoading ? 'disabled aria-busy="true"' : ''}>
+          ${item.imageLoading ? '<span class="image-spinner" aria-hidden="true"></span>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m4 17 5-5 3.2 3.2 2.3-2.3L20 18"></path></svg>'}
         </button>`;
+      }
+      function updateImageMarkup(item) {
+        const wrapper = $('items').querySelector(`.topic-with-image[data-topic-id="${CSS.escape(item.id)}"]`);
+        if (!wrapper) return;
+        wrapper.innerHTML = `<span class="topic">${escapeText(item.topic)}</span>${relatedImageMarkup(item)}`;
+        wrapper.querySelectorAll('[data-image-id]').forEach(button => button.addEventListener('click', () => {
+          requestRelatedImage(button.dataset.imageId);
+        }));
       }
       function render() {
         renderFilters();
@@ -704,7 +760,7 @@
                 <option value="medium" ${e.priority === 'medium' ? 'selected' : ''}>中</option>
                 <option value="high" ${e.priority === 'high' ? 'selected' : ''}>高</option>
               </select>
-              <span class="topic-with-image"><span class="topic">${escapeText(e.topic)}</span>${relatedImageMarkup(e)}</span>
+        <span class="topic-with-image" data-topic-id="${escapeText(e.id)}"><span class="topic">${escapeText(e.topic)}</span>${relatedImageMarkup(e)}</span>
             </div></div>
             <div class="review-meter" aria-label="復習 ${count} 回">
               <span class="meter-label">復習回数</span>
@@ -737,7 +793,7 @@
           deleteEntry(btn.dataset.delete);
         }));
         $('items').querySelectorAll('[data-image-id]').forEach(btn => btn.addEventListener('click', () => {
-          attachRelatedImage(btn.dataset.imageId);
+          requestRelatedImage(btn.dataset.imageId);
         }));
       }
       $('add-form').addEventListener('submit', event => {
@@ -747,7 +803,7 @@
         if (!topic) { input.focus(); return; }
         const nextOrder = entries.length ? Math.max(...entries.map(e => e.customOrder)) + 1 : 0;
         entries.push({ id: makeId(), subject: $('subject-select').value, topic, reviews: [], priority: selectedPriority, createdAt: Date.now(), customOrder: nextOrder });
-        persist(); input.value = ''; activeSubject = 'すべて'; render(); input.focus();
+        persist(); input.value = ''; activeSubject = 'すべて'; render(); input.focus(); queueMissingImages();
       });
       document.querySelectorAll('[data-priority-choice]').forEach(btn => btn.addEventListener('click', () => {
         selectedPriority = btn.dataset.priorityChoice;
@@ -776,7 +832,7 @@
         const action = undoStack.pop();
         if (!action) return;
         entries.splice(Math.min(action.index, entries.length), 0, action.entry);
-        persist(); render();
+        persist(); render(); queueMissingImages();
         if (undoStack.length) updateUndoBanner();
         else { clearTimeout(undoTimer); $('undo-banner').hidden = true; }
       });
@@ -821,10 +877,16 @@
       document.addEventListener('click', event => {
         if (event.target.closest('button, input, a')) playTap();
       });
+      window.addEventListener('online', () => {
+        entries.forEach(item => { if (!item.image) item.imageLookupAt = 0; });
+        persist();
+        queueMissingImages();
+      });
       applyTheme();
       setSoundButton();
       attachListGestures();
       render();
+      queueMissingImages();
     })();
   </script>
   <script>

@@ -388,7 +388,7 @@
       const key = 'exam-review-stock-v1';
       const themeKey = 'review-stock-theme-mode-v1';
       const soundKey = 'review-stock-sound-v1';
-      const IMAGE_SEARCH_VERSION = 6;
+      const IMAGE_SEARCH_VERSION = 7;
       const $ = (id) => document.getElementById(id);
       const systemTheme = matchMedia('(prefers-color-scheme: dark)');
       let themeMode = 'auto';
@@ -666,6 +666,36 @@
         const simplified = firstListed.replace(/(?:の)?(?:順序|流れ|内容|特徴|原因|結果|覚え方|ポイント|まとめ|について|とは)$/u, '').trim();
         return simplified.length >= 2 ? simplified : firstListed;
       }
+      async function resolveImageSearchQuery(topic) {
+        const original = String(topic || '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+        const query = imageSearchQuery(original);
+        const noIndex = original.indexOf('の');
+        if (noIndex > 1) {
+          const personQuery = imageSearchQuery(original.slice(0, noIndex));
+          if (personQuery.length >= 2) {
+            try {
+              const person = await findHumanWikidataMatch(personQuery);
+              if (person) return { query: personQuery, person };
+            } catch {}
+          }
+        }
+        if (query.includes('・')) {
+          try {
+            const wholeName = await findHumanWikidataMatch(query);
+            if (wholeName) return { query, person: wholeName };
+          } catch {}
+          const parts = query.split('・').map(part => part.trim()).filter(Boolean);
+          for (let count = parts.length - 1; count >= 1; count--) {
+            const personQuery = parts.slice(0, count).join('・');
+            if (personQuery.length < 2) continue;
+            try {
+              const person = await findHumanWikidataMatch(personQuery);
+              if (person) return { query: personQuery, person };
+            } catch {}
+          }
+        }
+        return { query, person: null };
+      }
       function compactImageText(value) {
         return String(value || '').normalize('NFKC').toLocaleLowerCase('ja').replace(/[\s\p{P}\p{S}]+/gu, '');
       }
@@ -851,7 +881,8 @@
         return candidates[0]?.image || null;
       }
       async function findRelatedImage(topic) {
-        const query = imageSearchQuery(topic);
+        const resolved = await resolveImageSearchQuery(topic);
+        const query = resolved.query;
         let wikipedia = null;
         try {
           wikipedia = await findWikipediaMatch(query);
@@ -860,7 +891,7 @@
         let pageEntity = null;
         try { pageEntity = await getWikidataEntity(wikipedia?.wikidataId); }
         catch {}
-        let person = pageEntity?.isHuman ? pageEntity : null;
+        let person = resolved.person || (pageEntity?.isHuman ? pageEntity : null);
         if (!person) {
           try { person = await findHumanWikidataMatch(query, wikipedia?.wikidataId); }
           catch {}

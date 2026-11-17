@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#235f4c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="復習ストック">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <title>復習ストック</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #232c2b;
+      --muted: #79817d;
+      --line: #e8e7df;
+      --paper: #fffefa;
+      --canvas: #f7f6f2;
+      --green: #235f4c;
+      --green-dark: #174b3b;
+      --green-pale: #e8f0e9;
+      --amber: #a56624;
+      --amber-pale: #fff1db;
+      --shadow: 0 14px 36px rgba(41, 48, 42, .055);
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1060px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 72px; }
+    header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 28px; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .12em; margin: 0 0 9px; }
+    h1 { font-size: clamp(29px, 4vw, 38px); line-height: 1.2; letter-spacing: -.04em; margin: 0; }
+    .subtitle { color: var(--muted); margin: 10px 0 0; font-size: 14px; }
+    .local-note { flex: 0 0 auto; color: var(--muted); font-size: 12px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,254,250,.7); }
+    .subject-progress { margin-bottom: 25px; }
+    .progress-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+    .progress-heading h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+    .progress-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+    .progress-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .progress-card { min-width: 0; padding: 14px 15px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: var(--shadow); }
+    .progress-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .progress-subject { font-size: 12px; line-height: 1.5; font-weight: 750; }
+    .progress-left { flex: 0 0 auto; color: var(--green); font-size: 12px; font-weight: 750; white-space: nowrap; }
+    .progress-left.done { color: #68736d; }
+    .progress-track { height: 7px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: #eeeee8; }
+    .progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #75a98a, #347455); transition: width .2s ease; }
+    .progress-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; color: var(--muted); font-size: 10px; }
+    .composer { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 19px; box-shadow: var(--shadow); margin-bottom: 25px; }
+    .composer-top { display: flex; align-items: center; gap: 12px; }
+    .composer-title { font-size: 14px; font-weight: 750; white-space: nowrap; }
+    select, .search { background: #fff; color: var(--ink); border: 1px solid #dcded6; outline: 0; }
+    select { height: 42px; border-radius: 11px; padding: 0 34px 0 12px; max-width: 290px; }
+    select:focus, .search:focus, .topic-input:focus { border-color: #6b9b83; box-shadow: 0 0 0 3px rgba(35,95,76,.1); }
+    .input-row { display: flex; gap: 9px; margin-top: 13px; }
+    .topic-input { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #dcded6; border-radius: 12px; outline: 0; background: #fff; }
+    .topic-input::placeholder { color: #a3a9a3; }
+    .add-btn, .review-btn { border: 0; background: var(--green); color: #fff; font-weight: 700; border-radius: 12px; transition: background .15s, transform .15s; }
+    .add-btn { padding: 0 19px; height: 48px; white-space: nowrap; }
+    .add-btn:hover, .review-btn:hover { background: var(--green-dark); }
+    .add-btn:active, .review-btn:active { transform: scale(.98); }
+    .hint { color: var(--muted); font-size: 11px; margin: 9px 0 0 2px; }
+    .list-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 13px; }
+    .list-title { margin: 0; font-size: 19px; letter-spacing: -.025em; }
+    .list-caption { color: var(--muted); font-size: 12px; margin: 5px 0 0; }
+    .search { width: 220px; height: 38px; border-radius: 10px; padding: 0 12px; }
+    .filters { display: flex; gap: 7px; overflow-x: auto; padding: 0 0 13px; scrollbar-width: none; }
+    .filters::-webkit-scrollbar { display: none; }
+    .filter { flex: 0 0 auto; border: 1px solid var(--line); color: #67706c; background: transparent; border-radius: 999px; padding: 7px 12px; font-size: 12px; }
+    .filter:hover { border-color: #a9b8ad; }
+    .filter.active { color: var(--green-dark); background: var(--green-pale); border-color: #d2e1d5; font-weight: 700; }
+    .items { display: grid; gap: 9px; }
+    .item { display: grid; grid-template-columns: minmax(0, 1fr) 130px 112px 94px; align-items: center; gap: 16px; padding: 15px 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 5px 18px rgba(41,48,42,.025); }
+    .item-main { min-width: 0; }
+    .item-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .subject { display: inline-flex; padding: 4px 8px; border-radius: 6px; background: #f0f1ed; color: #59635e; font-size: 10px; font-weight: 700; }
+    .topic { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+    .review-meter { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+    .meter-label { color: var(--muted); font-size: 10px; }
+    .lamps { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+    .lamp { display: block; width: 16px; height: 16px; border: 2px solid #d7d8d0; border-radius: 50%; background: #f2f1eb; }
+    .lamp.on { border-color: #d3942f; background: radial-gradient(circle at 35% 30%, #ffe7a7, #f2af3e 72%); box-shadow: 0 0 7px rgba(230, 163, 51, .42); }
+    .review-count { color: var(--ink); font-size: 21px; line-height: 1.1; font-weight: 800; letter-spacing: -.035em; }
+    .review-count small { margin-left: 3px; font-size: 12px; font-weight: 650; letter-spacing: 0; }
+    .meter-note { color: var(--green); font-size: 10px; font-weight: 700; }
+    .elapsed { min-width: 92px; text-align: right; }
+    .elapsed strong { display: block; font-size: 13px; font-weight: 700; }
+    .elapsed span { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+    .elapsed.never strong { color: var(--amber); }
+    .elapsed.today strong { color: var(--green); }
+    .review-btn { min-width: 94px; min-height: 38px; padding: 0 12px; border-radius: 10px; font-size: 12px; }
+    .delete-btn { display: none; position: absolute; top: 7px; right: 8px; border: 0; background: transparent; color: #9a9e99; font-size: 18px; line-height: 1; padding: 5px; }
+    .item { position: relative; }
+    .item:hover .delete-btn, .delete-btn:focus-visible { display: block; }
+    .empty { display: none; padding: 46px 16px; text-align: center; border: 1px dashed #d8dad3; border-radius: 16px; color: var(--muted); }
+    .empty strong { display: block; color: var(--ink); margin-bottom: 6px; font-size: 14px; }
+    .empty.visible { display: block; }
+    footer { margin-top: 20px; text-align: right; color: #969c96; font-size: 10px; }
+    @media (max-width: 650px) {
+      .shell { width: min(100% - 24px, 560px); padding: calc(22px + env(safe-area-inset-top)) 0 calc(42px + env(safe-area-inset-bottom)); }
+      header { display: block; margin-bottom: 20px; }
+      .local-note { display: inline-block; margin-top: 13px; }
+      .progress-grid { grid-template-columns: 1fr; gap: 7px; }
+      .progress-card { padding: 12px 13px; }
+      .progress-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .composer { padding: 14px; }
+      .composer-top { align-items: flex-start; flex-direction: column; gap: 8px; }
+      select { max-width: none; width: 100%; height: 46px; }
+      .input-row { gap: 7px; }
+      .add-btn { padding: 0 14px; }
+      .list-head { align-items: stretch; flex-direction: column; gap: 10px; }
+      .search { width: 100%; height: 44px; }
+      .filter { padding: 9px 13px; }
+      .item { grid-template-columns: minmax(0,1fr) auto; gap: 9px 10px; padding: 13px 12px; }
+      .item-main { grid-column: 1 / 3; padding-right: 22px; }
+      .review-meter { grid-column: 1; grid-row: 2; }
+      .elapsed { grid-column: 1; grid-row: 3; }
+      .review-btn { grid-column: 2; grid-row: 2 / 4; }
+      .elapsed { text-align: left; min-width: 0; }
+      .elapsed strong, .elapsed span { display: inline; }
+      .elapsed span { margin-left: 5px; }
+      .review-btn { justify-self: end; min-height: 44px; }
+      .delete-btn { display: block; width: 36px; height: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">EXAM REVIEW</p>
+        <h1>復習ストック</h1>
+        <p class="subtitle">苦手ポイントを短くストック。復習したら1タップ。</p>
+      </div>
+      <div class="local-note">このブラウザに自動保存</div>
+    </header>
+
+    <section class="subject-progress" aria-label="科目ごとの復習進捗">
+      <div class="progress-heading"><h2>科目別の復習進捗</h2><p>1ポイントにつき3回が目安</p></div>
+      <div id="subject-progress" class="progress-grid"></div>
+    </section>
+
+    <section class="composer" aria-label="復習項目を追加">
+      <div class="composer-top">
+        <div class="composer-title">苦手ポイントをさっと追加</div>
+        <select id="subject-select" aria-label="科目">
+          <option>公共・倫理</option>
+          <option>歴史総合・日本史探究</option>
+          <option>生物基礎</option>
+          <option>化学基礎</option>
+        </select>
+      </div>
+      <form id="add-form" class="input-row">
+        <input id="topic-input" class="topic-input" type="text" maxlength="160" autocomplete="off" placeholder="例：条約改正の順序" aria-label="復習ポイント">
+        <button class="add-btn" type="submit">＋ 追加</button>
+      </form>
+      <p class="hint">あとで見て思い出せるひとことだけ。入力して Enter でも追加できます。</p>
+    </section>
+
+    <section aria-label="復習項目一覧">
+      <div class="list-head">
+        <div><h2 class="list-title">復習リスト</h2><p class="list-caption">未復習のポイントと、前回から日が空いた順に表示します。</p></div>
+        <input id="search-input" class="search" type="search" placeholder="項目を検索" aria-label="項目を検索">
+      </div>
+      <nav id="filters" class="filters" aria-label="科目で絞り込み"></nav>
+      <div id="items" class="items"></div>
+      <div id="empty" class="empty"><strong>まだ項目がありません</strong>思い出したタイミングで、ひとことだけ追加してみましょう。</div>
+    </section>
+    <footer>復習記録はこの端末・ブラウザ内に保存されます。</footer>
+  </main>
+  <script>
+    (() => {
+      const subjects = ['公共・倫理', '歴史総合・日本史探究', '生物基礎', '化学基礎'];
+      const key = 'exam-review-stock-v1';
+      const $ = (id) => document.getElementById(id);
+      let activeSubject = 'すべて';
+      let entries = load();
+
+      function load() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(key) || '[]');
+          return Array.isArray(saved) ? saved.filter(x => x && typeof x.topic === 'string' && subjects.includes(x.subject)).map(x => ({
+            id: String(x.id || makeId()), subject: x.subject, topic: x.topic,
+            reviews: Array.isArray(x.reviews) ? x.reviews.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []
+          })) : [];
+        } catch { return []; }
+      }
+      function persist() {
+        try { localStorage.setItem(key, JSON.stringify(entries)); }
+        catch { alert('保存できませんでした。ブラウザの保存領域をご確認ください。'); }
+      }
+      function makeId() { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+      function todayKey() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+      function daysAgo(date) {
+        const [y,m,d] = date.split('-').map(Number);
+        const then = new Date(y, m-1, d);
+        const now = new Date(); now.setHours(0,0,0,0);
+        return Math.max(0, Math.floor((now - then) / 86400000));
+      }
+      function escapeText(value) {
+        return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      }
+      function elapsedMarkup(reviews) {
+        if (!reviews.length) return '<div class="elapsed never"><strong>未復習</strong><span>記録なし</span></div>';
+        const last = reviews[reviews.length - 1];
+        const days = daysAgo(last);
+        const when = days === 0 ? '今日' : `${days}日前`;
+        const date = last.replaceAll('-', '/');
+        return `<div class="elapsed ${days === 0 ? 'today' : ''}"><strong>${when}</strong><span>${date}に復習</span></div>`;
+      }
+      function renderFilters() {
+        const choices = ['すべて', ...subjects];
+        $('filters').innerHTML = choices.map(s => `<button class="filter ${activeSubject === s ? 'active' : ''}" type="button" data-subject="${escapeText(s)}">${escapeText(s)}</button>`).join('');
+        $('filters').querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+          activeSubject = btn.dataset.subject; render();
+        }));
+      }
+      function renderSubjectProgress() {
+        $('subject-progress').innerHTML = subjects.map(subject => {
+          const group = entries.filter(e => e.subject === subject);
+          const target = group.length * 3;
+          const completed = group.reduce((sum, e) => sum + Math.min(3, e.reviews.length), 0);
+          const remaining = target - completed;
+          const finishedTopics = group.filter(e => e.reviews.length >= 3).length;
+          const percent = target ? Math.round(completed / target * 100) : 0;
+          const status = !group.length ? '0ポイント' : remaining ? `あと${remaining}回` : '目安達成';
+          const foot = !group.length ? 'ポイントを追加すると進捗が表示されます' : `目安達成 ${finishedTopics} / ${group.length}ポイント`;
+          return `<article class="progress-card">
+            <div class="progress-top"><div class="progress-subject">${escapeText(subject)}</div><div class="progress-left ${group.length && remaining === 0 ? 'done' : ''}">${status}</div></div>
+            <div class="progress-track" role="progressbar" aria-label="${escapeText(subject)}の復習進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="progress-fill" style="width:${percent}%"></div></div>
+            <div class="progress-foot"><span>${foot}</span>${group.length ? `<span>${percent}%</span>` : ''}</div>
+          </article>`;
+        }).join('');
+      }
+      function render() {
+        renderFilters();
+        renderSubjectProgress();
+        const query = $('search-input').value.trim().toLocaleLowerCase();
+        const visible = entries.filter(e => (activeSubject === 'すべて' || e.subject === activeSubject) && (!query || `${e.topic} ${e.subject}`.toLocaleLowerCase().includes(query)))
+          .sort((a,b) => {
+            const ar = a.reviews.length ? daysAgo(a.reviews[a.reviews.length-1]) + 1 : 1000000;
+            const br = b.reviews.length ? daysAgo(b.reviews[b.reviews.length-1]) + 1 : 1000000;
+            return br - ar || a.topic.localeCompare(b.topic, 'ja');
+          });
+        $('items').innerHTML = visible.map(e => {
+          const count = e.reviews.length;
+          const lamps = [0,1,2].map(i => `<i class="lamp ${i < Math.min(3, count) ? 'on' : ''}"></i>`).join('');
+          return `
+          <article class="item">
+            <div class="item-main"><div class="item-top"><span class="subject">${escapeText(e.subject)}</span><span class="topic">${escapeText(e.topic)}</span></div></div>
+            <div class="review-meter" aria-label="復習 ${count} 回">
+              <span class="meter-label">復習回数</span>
+              <div class="lamps" aria-hidden="true">${lamps}</div>
+              <div class="review-count">${count <= 3 ? `${count}<small>/ 3回</small>` : `${count}<small>回</small>`}</div>
+              ${count >= 3 ? '<span class="meter-note">目安クリア</span>' : ''}
+            </div>
+            ${elapsedMarkup(e.reviews)}
+            <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
+            <button type="button" class="delete-btn" data-delete="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}を削除" title="削除">×</button>
+          </article>`;
+        }).join('');
+        $('empty').classList.toggle('visible', visible.length === 0);
+        $('empty').innerHTML = entries.length === 0
+          ? '<strong>まだ項目がありません</strong>思い出したタイミングで、ひとことだけ追加してみましょう。'
+          : '<strong>見つかりませんでした</strong>検索語や科目を変えてみてください。';
+        $('items').querySelectorAll('[data-review]').forEach(btn => btn.addEventListener('click', () => {
+          const item = entries.find(e => e.id === btn.dataset.review);
+          if (!item) return;
+          item.reviews.push(todayKey()); persist(); render();
+        }));
+        $('items').querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => {
+          entries = entries.filter(e => e.id !== btn.dataset.delete); persist(); render();
+        }));
+      }
+      $('add-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const input = $('topic-input');
+        const topic = input.value.trim();
+        if (!topic) { input.focus(); return; }
+        entries.push({ id: makeId(), subject: $('subject-select').value, topic, reviews: [] });
+        persist(); input.value = ''; activeSubject = 'すべて'; render(); input.focus();
+      });
+      $('search-input').addEventListener('input', render);
+      render();
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
+    }
+  </script>
+</body>
+</html>
+

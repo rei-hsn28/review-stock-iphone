@@ -63,9 +63,18 @@
     .add-btn:hover, .review-btn:hover { background: var(--green-dark); }
     .add-btn:active, .review-btn:active { transform: scale(.98); }
     .hint { color: var(--muted); font-size: 11px; margin: 9px 0 0 2px; }
+    .priority-picker { display: flex; align-items: center; gap: 7px; margin-top: 12px; }
+    .priority-label { margin-right: 2px; color: var(--muted); font-size: 11px; }
+    .priority-option { height: 34px; min-width: 48px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; color: #69716c; background: #fff; font-size: 12px; }
+    .priority-option:hover { border-color: #b9c1b8; }
+    .priority-option.active[data-priority-choice="low"] { color: #27697d; background: #eaf3f5; border-color: #c8e0e5; font-weight: 750; }
+    .priority-option.active[data-priority-choice="medium"] { color: #93651d; background: #fff3dc; border-color: #f0dbb4; font-weight: 750; }
+    .priority-option.active[data-priority-choice="high"] { color: #9a463e; background: #faece9; border-color: #edc8c2; font-weight: 750; }
     .list-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 13px; }
     .list-title { margin: 0; font-size: 19px; letter-spacing: -.025em; }
     .list-caption { color: var(--muted); font-size: 12px; margin: 5px 0 0; }
+    .list-tools { display: flex; gap: 8px; }
+    .list-tools select { width: 180px; height: 38px; border-radius: 10px; font-size: 12px; }
     .search { width: 220px; height: 38px; border-radius: 10px; padding: 0 12px; }
     .filters { display: flex; gap: 7px; overflow-x: auto; padding: 0 0 13px; scrollbar-width: none; }
     .filters::-webkit-scrollbar { display: none; }
@@ -73,16 +82,25 @@
     .filter:hover { border-color: #a9b8ad; }
     .filter.active { color: var(--green-dark); background: var(--green-pale); border-color: #d2e1d5; font-weight: 700; }
     .items { display: grid; gap: 9px; }
-    .item { display: grid; grid-template-columns: minmax(0, 1fr) 130px 112px 94px; align-items: center; gap: 16px; padding: 15px 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 5px 18px rgba(41,48,42,.025); }
+    .item { display: grid; grid-template-columns: minmax(0, 1fr) 130px 112px 94px; align-items: center; gap: 16px; padding: 15px 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 5px 18px rgba(41,48,42,.025); touch-action: pan-y; transition: transform .18s ease, opacity .18s ease, background .18s ease; }
     .item-main { min-width: 0; }
     .item-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .subject { display: inline-flex; padding: 4px 8px; border-radius: 6px; background: #f0f1ed; color: #59635e; font-size: 10px; font-weight: 700; }
     .topic { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+    .priority-select { width: auto; min-width: 54px; max-width: 76px; height: 27px; padding: 0 6px 0 8px; border-radius: 7px; font-size: 10px; }
+    .priority-select[data-priority="low"] { color: #27697d; background-color: #eaf3f5; border-color: #c8e0e5; }
+    .priority-select[data-priority="medium"] { color: #93651d; background-color: #fff3dc; border-color: #f0dbb4; }
+    .priority-select[data-priority="high"] { color: #9a463e; background-color: #faece9; border-color: #edc8c2; font-weight: 750; }
+    .drag-handle { display: none; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 26px; height: 40px; padding: 0; border: 0; background: transparent; color: #89928c; font-size: 20px; cursor: grab; touch-action: none; user-select: none; }
+    .item.custom-sort { padding-left: 40px; }
+    .item.custom-sort .drag-handle { display: block; }
+    .item.dragging { opacity: .6; outline: 2px solid #a8c4b1; }
+    .item.swipe-out { transform: translateX(-70px); opacity: .15; background: #faece9; }
     .review-meter { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
     .meter-label { color: var(--muted); font-size: 10px; }
     .lamps { display: flex; align-items: center; gap: 6px; min-height: 22px; }
-    .lamp { display: block; width: 16px; height: 16px; border: 2px solid #d7d8d0; border-radius: 50%; background: #f2f1eb; }
-    .lamp.on { border-color: #d3942f; background: radial-gradient(circle at 35% 30%, #ffe7a7, #f2af3e 72%); box-shadow: 0 0 7px rgba(230, 163, 51, .42); }
+    .lamp { display: block; width: 15px; height: 15px; border: 0; border-radius: 50%; background: #e6e8e2; }
+    .lamp.on { background: #e3aa43; }
     .review-count { color: var(--ink); font-size: 21px; line-height: 1.1; font-weight: 800; letter-spacing: -.035em; }
     .review-count small { margin-left: 3px; font-size: 12px; font-weight: 650; letter-spacing: 0; }
     .meter-note { color: var(--green); font-size: 10px; font-weight: 700; }
@@ -92,9 +110,13 @@
     .elapsed.never strong { color: var(--amber); }
     .elapsed.today strong { color: var(--green); }
     .review-btn { min-width: 94px; min-height: 38px; padding: 0 12px; border-radius: 10px; font-size: 12px; }
-    .delete-btn { display: none; position: absolute; top: 7px; right: 8px; border: 0; background: transparent; color: #9a9e99; font-size: 18px; line-height: 1; padding: 5px; }
+    .delete-btn { display: none; position: absolute; top: 7px; right: 8px; border: 0; background: transparent; color: #9a5a53; font-size: 11px; line-height: 1; padding: 6px 8px; }
     .item { position: relative; }
     .item:hover .delete-btn, .delete-btn:focus-visible { display: block; }
+    .undo-banner { position: fixed; z-index: 10; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 18px; width: min(520px, calc(100% - 24px)); padding: 12px 14px; transform: translateX(-50%); border-radius: 14px; background: #26332e; color: #fff; box-shadow: 0 12px 32px rgba(24,34,29,.22); font-size: 13px; }
+    .undo-banner span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .undo-banner[hidden] { display: none; }
+    .undo-button { flex: 0 0 auto; border: 0; border-radius: 8px; padding: 8px 10px; background: #e6f0e8; color: #235f4c; font-weight: 750; }
     .empty { display: none; padding: 46px 16px; text-align: center; border: 1px dashed #d8dad3; border-radius: 16px; color: var(--muted); }
     .empty strong { display: block; color: var(--ink); margin-bottom: 6px; font-size: 14px; }
     .empty.visible { display: block; }
@@ -112,7 +134,8 @@
       .input-row { gap: 7px; }
       .add-btn { padding: 0 14px; }
       .list-head { align-items: stretch; flex-direction: column; gap: 10px; }
-      .search { width: 100%; height: 44px; }
+      .list-tools { flex-direction: column; }
+      .list-tools select, .search { width: 100%; height: 44px; }
       .filter { padding: 9px 13px; }
       .item { grid-template-columns: minmax(0,1fr) auto; gap: 9px 10px; padding: 13px 12px; }
       .item-main { grid-column: 1 / 3; padding-right: 22px; }
@@ -123,7 +146,11 @@
       .elapsed strong, .elapsed span { display: inline; }
       .elapsed span { margin-left: 5px; }
       .review-btn { justify-self: end; min-height: 44px; }
-      .delete-btn { display: block; width: 36px; height: 36px; }
+      .delete-btn { display: none !important; }
+      .drag-handle { left: 6px; width: 26px; }
+      .item.custom-sort { padding-left: 34px; }
+      .priority-option { min-width: 54px; height: 40px; }
+      .undo-banner { bottom: calc(10px + env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
@@ -153,23 +180,41 @@
           <option>化学基礎</option>
         </select>
       </div>
+      <div class="priority-picker" role="group" aria-label="新しいポイントの優先度">
+        <span class="priority-label">優先度</span>
+        <button class="priority-option" type="button" data-priority-choice="low" aria-pressed="false">低</button>
+        <button class="priority-option active" type="button" data-priority-choice="medium" aria-pressed="true">中</button>
+        <button class="priority-option" type="button" data-priority-choice="high" aria-pressed="false">高</button>
+      </div>
       <form id="add-form" class="input-row">
         <input id="topic-input" class="topic-input" type="text" maxlength="160" autocomplete="off" placeholder="例：条約改正の順序" aria-label="復習ポイント">
         <button class="add-btn" type="submit">＋ 追加</button>
       </form>
-      <p class="hint">あとで見て思い出せるひとことだけ。入力して Enter でも追加できます。</p>
+      <p class="hint">ひとこと入力して Enter でも追加できます。iPhoneはキーボードのマイクから音声入力できます。</p>
     </section>
 
     <section aria-label="復習項目一覧">
       <div class="list-head">
-        <div><h2 class="list-title">復習リスト</h2><p class="list-caption">未復習のポイントと、前回から日が空いた順に表示します。</p></div>
-        <input id="search-input" class="search" type="search" placeholder="項目を検索" aria-label="項目を検索">
+        <div><h2 class="list-title">復習リスト</h2><p id="list-caption" class="list-caption">左スワイプで削除できます。取り消しもできます。</p></div>
+        <div class="list-tools">
+          <select id="sort-select" aria-label="リストの並び順">
+            <option value="elapsed">日が空いた順</option>
+            <option value="created">作成した順（古い順）</option>
+            <option value="priority">優先度の高い順</option>
+            <option value="custom">カスタム</option>
+          </select>
+          <input id="search-input" class="search" type="search" placeholder="項目を検索" aria-label="項目を検索">
+        </div>
       </div>
       <nav id="filters" class="filters" aria-label="科目で絞り込み"></nav>
       <div id="items" class="items"></div>
       <div id="empty" class="empty"><strong>まだ項目がありません</strong>思い出したタイミングで、ひとことだけ追加してみましょう。</div>
     </section>
     <footer>復習記録はこの端末・ブラウザ内に保存されます。</footer>
+    <div id="undo-banner" class="undo-banner" role="status" aria-live="polite" hidden>
+      <span id="undo-message">削除しました</span>
+      <button id="undo-button" class="undo-button" type="button">元に戻す</button>
+    </div>
   </main>
   <script>
     (() => {
@@ -177,14 +222,24 @@
       const key = 'exam-review-stock-v1';
       const $ = (id) => document.getElementById(id);
       let activeSubject = 'すべて';
+      let activeSort = 'elapsed';
+      let selectedPriority = 'medium';
+      let undoStack = [];
+      let undoTimer = null;
+      let swipeStart = null;
+      let draggingItem = null;
+      let dragPointerId = null;
       let entries = load();
 
       function load() {
         try {
           const saved = JSON.parse(localStorage.getItem(key) || '[]');
-          return Array.isArray(saved) ? saved.filter(x => x && typeof x.topic === 'string' && subjects.includes(x.subject)).map(x => ({
+          return Array.isArray(saved) ? saved.filter(x => x && typeof x.topic === 'string' && subjects.includes(x.subject)).map((x, index) => ({
             id: String(x.id || makeId()), subject: x.subject, topic: x.topic,
-            reviews: Array.isArray(x.reviews) ? x.reviews.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []
+            reviews: Array.isArray(x.reviews) ? x.reviews.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : [],
+            priority: ['low', 'medium', 'high'].includes(x.priority) ? x.priority : 'medium',
+            createdAt: Number.isFinite(Number(x.createdAt)) && x.createdAt != null ? Number(x.createdAt) : Date.now() - (saved.length - index) * 1000,
+            customOrder: Number.isFinite(Number(x.customOrder)) && x.customOrder != null ? Number(x.customOrder) : index
           })) : [];
         } catch { return []; }
       }
@@ -221,6 +276,95 @@
           activeSubject = btn.dataset.subject; render();
         }));
       }
+      function priorityRank(priority) { return ({ low: 0, medium: 1, high: 2 })[priority] ?? 1; }
+      function compareElapsed(a, b) {
+        if (!a.reviews.length && b.reviews.length) return -1;
+        if (a.reviews.length && !b.reviews.length) return 1;
+        if (a.reviews.length && b.reviews.length) {
+          const gap = daysAgo(b.reviews[b.reviews.length - 1]) - daysAgo(a.reviews[a.reviews.length - 1]);
+          if (gap) return gap;
+        }
+        return a.createdAt - b.createdAt || a.topic.localeCompare(b.topic, 'ja');
+      }
+      function updateUndoBanner() {
+        if (!undoStack.length) return;
+        const last = undoStack[undoStack.length - 1].entry;
+        $('undo-message').textContent = undoStack.length > 1 ? `${undoStack.length}件を削除しました` : `「${last.topic}」を削除しました`;
+        $('undo-banner').hidden = false;
+        clearTimeout(undoTimer);
+        undoTimer = setTimeout(() => {
+          undoStack = [];
+          $('undo-banner').hidden = true;
+        }, 7000);
+      }
+      function deleteEntry(id) {
+        const index = entries.findIndex(e => e.id === id);
+        if (index < 0) return;
+        const [entry] = entries.splice(index, 1);
+        undoStack.push({ entry, index });
+        persist(); render(); updateUndoBanner();
+      }
+      function saveCustomOrder() {
+        const list = $('items');
+        const visibleIds = new Set([...list.querySelectorAll('.item')].map(card => card.dataset.itemId));
+        const reorderedVisible = [...list.querySelectorAll('.item')].map(card => entries.find(e => e.id === card.dataset.itemId)).filter(Boolean);
+        const orderedAll = entries.slice().sort((a,b) => a.customOrder - b.customOrder);
+        const slots = [];
+        orderedAll.forEach((entry, index) => { if (visibleIds.has(entry.id)) slots.push(index); });
+        slots.forEach((slot, index) => { orderedAll[slot] = reorderedVisible[index]; });
+        orderedAll.forEach((entry, index) => { entry.customOrder = index; });
+        entries = orderedAll;
+        persist();
+      }
+      function attachListGestures() {
+        const list = $('items');
+        list.addEventListener('pointerdown', event => {
+          const handle = event.target.closest('.drag-handle');
+          if (handle && activeSort === 'custom') {
+            draggingItem = handle.closest('.item');
+            dragPointerId = event.pointerId;
+            draggingItem.classList.add('dragging');
+            try { handle.setPointerCapture(event.pointerId); } catch {}
+            event.preventDefault();
+            return;
+          }
+          const card = event.target.closest('.item');
+          if (event.pointerType === 'touch' && card && !event.target.closest('button, select, input')) {
+            swipeStart = { id: card.dataset.itemId, pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+          }
+        });
+        list.addEventListener('pointermove', event => {
+          if (!draggingItem || event.pointerId !== dragPointerId) return;
+          const cards = [...list.querySelectorAll('.item')].filter(card => card !== draggingItem);
+          const before = cards.find(card => event.clientY < card.getBoundingClientRect().top + card.getBoundingClientRect().height / 2);
+          if (before) list.insertBefore(draggingItem, before);
+          else list.appendChild(draggingItem);
+        });
+        list.addEventListener('pointerup', event => {
+          if (draggingItem && event.pointerId === dragPointerId) {
+            draggingItem.classList.remove('dragging');
+            draggingItem = null; dragPointerId = null;
+            saveCustomOrder(); render();
+            return;
+          }
+          if (!swipeStart || event.pointerId !== swipeStart.pointerId) return;
+          const gesture = swipeStart; swipeStart = null;
+          const dx = event.clientX - gesture.x;
+          const dy = event.clientY - gesture.y;
+          const card = list.querySelector(`[data-item-id="${CSS.escape(gesture.id)}"]`);
+          if (dx < -80 && Math.abs(dy) < 60 && card) {
+            card.classList.add('swipe-out');
+            setTimeout(() => deleteEntry(gesture.id), 180);
+          }
+        });
+        list.addEventListener('pointercancel', event => {
+          if (swipeStart?.pointerId === event.pointerId) swipeStart = null;
+          if (draggingItem && event.pointerId === dragPointerId) {
+            draggingItem.classList.remove('dragging');
+            draggingItem = null; dragPointerId = null; render();
+          }
+        });
+      }
       function renderSubjectProgress() {
         $('subject-progress').innerHTML = subjects.map(subject => {
           const group = entries.filter(e => e.subject === subject);
@@ -241,19 +385,33 @@
       function render() {
         renderFilters();
         renderSubjectProgress();
+        $('sort-select').value = activeSort;
+        $('list-caption').textContent = activeSort === 'custom'
+          ? '左のハンドルをドラッグして並べ替え。左スワイプで削除できます。'
+          : '左スワイプで削除できます。取り消しもできます。';
         const query = $('search-input').value.trim().toLocaleLowerCase();
         const visible = entries.filter(e => (activeSubject === 'すべて' || e.subject === activeSubject) && (!query || `${e.topic} ${e.subject}`.toLocaleLowerCase().includes(query)))
           .sort((a,b) => {
-            const ar = a.reviews.length ? daysAgo(a.reviews[a.reviews.length-1]) + 1 : 1000000;
-            const br = b.reviews.length ? daysAgo(b.reviews[b.reviews.length-1]) + 1 : 1000000;
-            return br - ar || a.topic.localeCompare(b.topic, 'ja');
+            if (activeSort === 'created') return a.createdAt - b.createdAt || a.topic.localeCompare(b.topic, 'ja');
+            if (activeSort === 'priority') return priorityRank(b.priority) - priorityRank(a.priority) || compareElapsed(a, b);
+            if (activeSort === 'custom') return a.customOrder - b.customOrder || a.createdAt - b.createdAt;
+            return compareElapsed(a, b);
           });
         $('items').innerHTML = visible.map(e => {
           const count = e.reviews.length;
           const lamps = [0,1,2].map(i => `<i class="lamp ${i < Math.min(3, count) ? 'on' : ''}"></i>`).join('');
           return `
-          <article class="item">
-            <div class="item-main"><div class="item-top"><span class="subject">${escapeText(e.subject)}</span><span class="topic">${escapeText(e.topic)}</span></div></div>
+          <article class="item ${activeSort === 'custom' ? 'custom-sort' : ''}" data-item-id="${escapeText(e.id)}">
+            <button type="button" class="drag-handle" aria-label="${escapeText(e.topic)}を並べ替え">⠿</button>
+            <div class="item-main"><div class="item-top">
+              <span class="subject">${escapeText(e.subject)}</span>
+              <select class="priority-select" data-priority="${e.priority}" data-priority-id="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}の優先度">
+                <option value="low" ${e.priority === 'low' ? 'selected' : ''}>低</option>
+                <option value="medium" ${e.priority === 'medium' ? 'selected' : ''}>中</option>
+                <option value="high" ${e.priority === 'high' ? 'selected' : ''}>高</option>
+              </select>
+              <span class="topic">${escapeText(e.topic)}</span>
+            </div></div>
             <div class="review-meter" aria-label="復習 ${count} 回">
               <span class="meter-label">復習回数</span>
               <div class="lamps" aria-hidden="true">${lamps}</div>
@@ -262,7 +420,7 @@
             </div>
             ${elapsedMarkup(e.reviews)}
             <button type="button" class="review-btn" data-review="${escapeText(e.id)}">復習した</button>
-            <button type="button" class="delete-btn" data-delete="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}を削除" title="削除">×</button>
+            <button type="button" class="delete-btn" data-delete="${escapeText(e.id)}" aria-label="${escapeText(e.topic)}を削除" title="削除">削除</button>
           </article>`;
         }).join('');
         $('empty').classList.toggle('visible', visible.length === 0);
@@ -274,8 +432,13 @@
           if (!item) return;
           item.reviews.push(todayKey()); persist(); render();
         }));
+        $('items').querySelectorAll('[data-priority-id]').forEach(select => select.addEventListener('change', () => {
+          const item = entries.find(e => e.id === select.dataset.priorityId);
+          if (!item) return;
+          item.priority = select.value; persist(); render();
+        }));
         $('items').querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => {
-          entries = entries.filter(e => e.id !== btn.dataset.delete); persist(); render();
+          deleteEntry(btn.dataset.delete);
         }));
       }
       $('add-form').addEventListener('submit', event => {
@@ -283,10 +446,29 @@
         const input = $('topic-input');
         const topic = input.value.trim();
         if (!topic) { input.focus(); return; }
-        entries.push({ id: makeId(), subject: $('subject-select').value, topic, reviews: [] });
+        const nextOrder = entries.length ? Math.max(...entries.map(e => e.customOrder)) + 1 : 0;
+        entries.push({ id: makeId(), subject: $('subject-select').value, topic, reviews: [], priority: selectedPriority, createdAt: Date.now(), customOrder: nextOrder });
         persist(); input.value = ''; activeSubject = 'すべて'; render(); input.focus();
       });
+      document.querySelectorAll('[data-priority-choice]').forEach(btn => btn.addEventListener('click', () => {
+        selectedPriority = btn.dataset.priorityChoice;
+        document.querySelectorAll('[data-priority-choice]').forEach(option => {
+          const active = option === btn;
+          option.classList.toggle('active', active);
+          option.setAttribute('aria-pressed', String(active));
+        });
+      }));
+      $('sort-select').addEventListener('change', () => { activeSort = $('sort-select').value; render(); });
       $('search-input').addEventListener('input', render);
+      $('undo-button').addEventListener('click', () => {
+        const action = undoStack.pop();
+        if (!action) return;
+        entries.splice(Math.min(action.index, entries.length), 0, action.entry);
+        persist(); render();
+        if (undoStack.length) updateUndoBanner();
+        else { clearTimeout(undoTimer); $('undo-banner').hidden = true; }
+      });
+      attachListGestures();
       render();
     })();
   </script>

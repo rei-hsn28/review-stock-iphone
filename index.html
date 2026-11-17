@@ -388,7 +388,7 @@
       const key = 'exam-review-stock-v1';
       const themeKey = 'review-stock-theme-mode-v1';
       const soundKey = 'review-stock-sound-v1';
-      const IMAGE_SEARCH_VERSION = 7;
+      const IMAGE_SEARCH_VERSION = 8;
       const $ = (id) => document.getElementById(id);
       const systemTheme = matchMedia('(prefers-color-scheme: dark)');
       let themeMode = 'auto';
@@ -420,8 +420,8 @@
         try { return new URL(value).protocol === 'https:'; }
         catch { return false; }
       }
-      function plainImageMetadata(value) {
-        return new DOMParser().parseFromString(String(value || ''), 'text/html').body.textContent.replace(/\s+/g, ' ').trim().slice(0, 100);
+      function plainImageMetadata(value, maxLength = 100) {
+        return new DOMParser().parseFromString(String(value || ''), 'text/html').body.textContent.replace(/\s+/g, ' ').trim().slice(0, maxLength);
       }
       function normalizeStoredImage(image, topic) {
         if (!image || typeof image !== 'object') return null;
@@ -697,7 +697,7 @@
         return { query, person: null };
       }
       function compactImageText(value) {
-        return String(value || '').normalize('NFKC').toLocaleLowerCase('ja').replace(/[\s\p{P}\p{S}]+/gu, '');
+        return String(value || '').normalize('NFKC').toLocaleLowerCase('ja').normalize('NFD').replace(/([a-z])\p{M}+/gu, '$1').replace(/[\s\p{P}\p{S}]+/gu, '');
       }
       function imageTextScore(query, candidate) {
         const wanted = compactImageText(query);
@@ -716,10 +716,11 @@
         wantedGrams.forEach(gram => { if (textGrams.has(gram)) overlap++; });
         return 2 * overlap / Math.max(1, wantedGrams.size + textGrams.size);
       }
-      async function findWikipediaMatch(topic) {
+      async function findWikipediaMatch(topic, subject = '') {
         const query = imageSearchQuery(topic);
+        const searchTerm = subject.includes('歴史') ? `${query} 日本史` : query;
         const params = new URLSearchParams({
-          action: 'query', generator: 'search', gsrsearch: query, gsrnamespace: '0', gsrlimit: '10',
+          action: 'query', generator: 'search', gsrsearch: searchTerm, gsrnamespace: '0', gsrlimit: '10',
           prop: 'pageimages|pageprops', piprop: 'thumbnail|name', pithumbsize: '180',
           format: 'json', origin: '*'
         });
@@ -729,10 +730,11 @@
         if (data.error) throw new Error(data.error.info || 'Wikipedia image lookup failed');
         const pages = Object.values(data.query?.pages || {}).map(page => ({
           page,
+          exactTitle: compactImageText(page.title) === compactImageText(query),
           titleScore: imageTextScore(query, page.title),
           fileScore: imageTextScore(query, page.pageimage)
         })).filter(result => result.titleScore >= 0.88)
-          .sort((a, b) => (b.titleScore + b.fileScore * 0.24) - (a.titleScore + a.fileScore * 0.24) || (a.page.index ?? 0) - (b.page.index ?? 0));
+          .sort((a, b) => Number(b.exactTitle) - Number(a.exactTitle) || (b.titleScore + b.fileScore * 0.24) - (a.titleScore + a.fileScore * 0.24) || (a.page.index ?? 0) - (b.page.index ?? 0));
         const page = pages[0]?.page;
         if (!page) return { wikidataId: '', image: null };
         const url = page.thumbnail?.source;
@@ -802,9 +804,9 @@
         }).filter(Boolean).sort((a, b) => Number(b.preferred) - Number(a.preferred) || Number(b.matchType === 'label') - Number(a.matchType === 'label') || b.score - a.score);
         return people[0] || null;
       }
-      async function findWikimediaPortrait(person) {
-        if (!person?.isHuman || !person.imageFile) return null;
-        const params = new URLSearchParams({ action: 'query', titles: `File:${person.imageFile}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '240', format: 'json', origin: '*' });
+      async function findWikimediaEntityImage(entity) {
+        if (!entity?.imageFile) return null;
+        const params = new URLSearchParams({ action: 'query', titles: `File:${entity.imageFile}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '240', format: 'json', origin: '*' });
         const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
         if (!response.ok) throw new Error('Wikimedia Commons image lookup failed');
         const data = await response.json();
@@ -816,13 +818,65 @@
         const metadata = info.extmetadata || {};
         return {
           url,
-          article: info.descriptionurl || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(person.imageFile.replaceAll(' ', '_'))}`,
-          title: person.label || person.englishLabel || person.imageFile.replace(/\.[^.]+$/, '').replaceAll('_', ' '),
+          article: info.descriptionurl || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(entity.imageFile.replaceAll(' ', '_'))}`,
+          title: entity.label || entity.englishLabel || entity.imageFile.replace(/\.[^.]+$/, '').replaceAll('_', ' '),
           source: 'wikimedia',
           creator: plainImageMetadata(metadata.Artist?.value || metadata.Credit?.value),
           license: plainImageMetadata(metadata.LicenseShortName?.value),
           licenseUrl: isHttpsUrl(metadata.LicenseUrl?.value) ? metadata.LicenseUrl.value : ''
         };
+      }
+      function imageSearchAliases(topic, subject = '') {
+        if (!subject.includes('歴史')) return [];
+        const query = compactImageText(imageSearchQuery(topic));
+        if (query === compactImageText('江戸時代')) return ['Edo period', 'Edo period Japan'];
+        if (query === compactImageText('東海道')) return ['Tokaido road', 'Tokaido route Japan'];
+        if (query === compactImageText('備中鍬')) return ['Bitchu hoe', 'three-pronged Japanese hoe'];
+        return [];
+      }
+      async function findWikimediaConceptImage(topic, englishQuery = '', subject = '') {
+        const aliases = imageSearchAliases(topic, subject);
+        const anchors = [...new Set([topic, englishQuery, ...aliases].map(value => String(value || '').trim()).filter(Boolean))];
+        const searchTerms = [...new Set([...aliases, topic, englishQuery].map(value => String(value || '').trim()).filter(Boolean))];
+        for (const searchTerm of searchTerms) {
+          try {
+            const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: searchTerm, gsrnamespace: '6', gsrlimit: '10', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '240', format: 'json', origin: '*' });
+            const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+            if (!response.ok) continue;
+            const data = await response.json();
+            if (data.error) continue;
+            const candidates = Object.values(data.query?.pages || {}).map((page, index) => {
+              const info = page.imageinfo?.[0];
+              const url = info?.thumburl || info?.url || '';
+              if (!/^https:\/\/upload\.wikimedia\.org\//.test(url)) return null;
+              const metadata = info.extmetadata || {};
+              const fileTitle = String(page.title || '').replace(/^File:/i, '').replaceAll('_', ' ');
+              const description = plainImageMetadata(`${metadata.ObjectName?.value || ''} ${metadata.ImageDescription?.value || ''}`, 500);
+              const titleScore = Math.max(...anchors.map(anchor => imageTextScore(anchor, fileTitle)), 0);
+              const descriptionScore = Math.max(...anchors.map(anchor => imageTextScore(anchor, description)), 0);
+              const relevance = Math.max(titleScore, descriptionScore * 0.92);
+              const isTokaidoHistory = subject.includes('歴史') && compactImageText(topic) === compactImageText('東海道');
+              if (isTokaidoHistory && /shinkansen|railway|rail line|train|bullet train|東海道本線|新幹線|鉄道|列車/iu.test(`${fileTitle} ${description}`)) return null;
+              if (relevance < 0.9 || (titleScore < 0.9 && descriptionScore < 0.9)) return null;
+              return {
+                relevance,
+                titleScore,
+                index,
+                image: {
+                  url,
+                  article: info.descriptionurl || `https://commons.wikimedia.org/wiki/${encodeURIComponent(String(page.title || '').replaceAll(' ', '_'))}`,
+                  title: fileTitle.slice(0, 140) || topic,
+                  source: 'wikimedia',
+                  creator: plainImageMetadata(metadata.Artist?.value || metadata.Credit?.value),
+                  license: plainImageMetadata(metadata.LicenseShortName?.value, 40),
+                  licenseUrl: isHttpsUrl(metadata.LicenseUrl?.value) ? metadata.LicenseUrl.value : ''
+                }
+              };
+            }).filter(Boolean).sort((a, b) => b.relevance - a.relevance || b.titleScore - a.titleScore || a.index - b.index);
+            if (candidates[0]) return candidates[0].image;
+          } catch {}
+        }
+        return null;
       }
       async function findEnglishWikidataLabel(id) {
         if (!/^Q\d+$/.test(String(id || ''))) return '';
@@ -849,7 +903,7 @@
         }
         return '';
       }
-      async function findOpenverseImage(topic) {
+      async function findOpenverseImage(topic, excludeModernRail = false) {
         const query = imageSearchQuery(topic);
         const params = new URLSearchParams({ q: query, page_size: '20', mature: 'false' });
         const response = await fetch(`https://api.openverse.org/v1/images/?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
@@ -862,6 +916,7 @@
           const titleScore = imageTextScore(query, result.title);
           const tagScore = Math.max(0, ...tags.map(tag => imageTextScore(query, tag)));
           const relevance = Math.max(titleScore, tagScore * 0.9);
+          if (excludeModernRail && /shinkansen|railway|rail line|train|bullet train|東海道本線|新幹線|鉄道|列車/iu.test(`${result.title || ''} ${tags.join(' ')}`)) return null;
           const id = String(result.id || '');
           const article = String(result.foreign_landing_url || '');
           if (!uuidPattern.test(id) || !isHttpsUrl(article) || relevance < 0.76 || (titleScore < 0.76 && tagScore < 0.9)) return null;
@@ -880,12 +935,12 @@
         }).filter(Boolean).sort((a, b) => b.relevance - a.relevance);
         return candidates[0]?.image || null;
       }
-      async function findRelatedImage(topic) {
+      async function findRelatedImage(topic, subject = '') {
         const resolved = await resolveImageSearchQuery(topic);
         const query = resolved.query;
         let wikipedia = null;
         try {
-          wikipedia = await findWikipediaMatch(query);
+          wikipedia = await findWikipediaMatch(query, subject);
         } catch {}
         const isJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(query);
         let pageEntity = null;
@@ -898,7 +953,7 @@
         }
         if (person) {
           try {
-            const portrait = await findWikimediaPortrait(person);
+            const portrait = await findWikimediaEntityImage(person);
             if (portrait) return portrait;
           } catch {}
           if (wikipedia?.wikidataId === person.id && wikipedia.image) return wikipedia.image;
@@ -912,8 +967,26 @@
           try { englishQuery = await searchWikidataEnglishLabel(query); }
           catch {}
         }
+        if (pageEntity?.imageFile) {
+          try {
+            const representativeImage = await findWikimediaEntityImage(pageEntity);
+            if (representativeImage) return representativeImage;
+          } catch {}
+        }
+        try {
+          const commonsImage = await findWikimediaConceptImage(query, englishQuery, subject);
+          if (commonsImage) return commonsImage;
+        } catch {}
         const openverseQuery = englishQuery || (!isJapanese ? query : '');
-        return openverseQuery ? findOpenverseImage(openverseQuery) : null;
+        const openverseQueries = [...new Set([openverseQuery, ...imageSearchAliases(query, subject)].filter(Boolean))];
+        const excludeModernRail = subject.includes('歴史') && compactImageText(query) === compactImageText('東海道');
+        for (const candidateQuery of openverseQueries) {
+          try {
+            const image = await findOpenverseImage(candidateQuery, excludeModernRail);
+            if (image) return image;
+          } catch {}
+        }
+        return null;
       }
       async function requestRelatedImage(id, automatic = false) {
         if (imageRequests.has(id)) return imageRequests.get(id);
@@ -924,7 +997,7 @@
           item.imageLoading = true;
           updateImageMarkup(item);
           try {
-            const image = await findRelatedImage(item.topic);
+            const image = await findRelatedImage(item.topic, item.subject);
             if (!entries.includes(item)) return;
             item.imageLookupAt = Date.now();
             if (image) item.image = image;

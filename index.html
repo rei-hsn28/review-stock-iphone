@@ -358,6 +358,7 @@
       const key = 'exam-review-stock-v1';
       const themeKey = 'review-stock-theme-mode-v1';
       const soundKey = 'review-stock-sound-v1';
+      const IMAGE_SEARCH_VERSION = 3;
       const $ = (id) => document.getElementById(id);
       const systemTheme = matchMedia('(prefers-color-scheme: dark)');
       let themeMode = 'auto';
@@ -385,6 +386,31 @@
       let dragPointerId = null;
       let entries = load();
 
+      function isHttpsUrl(value) {
+        try { return new URL(value).protocol === 'https:'; }
+        catch { return false; }
+      }
+      function normalizeStoredImage(image, topic) {
+        if (!image || typeof image !== 'object') return null;
+        const url = String(image.url || '');
+        const article = String(image.article || '');
+        const title = String(image.title || topic).slice(0, 140);
+        if (image.source === 'openverse'
+          && /^https:\/\/api\.openverse\.org\/v1\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/thumb\/(?:\?.*)?$/i.test(url)
+          && isHttpsUrl(article)) {
+          return {
+            url, article, title, source: 'openverse',
+            creator: String(image.creator || '').slice(0, 100),
+            license: String(image.license || '').slice(0, 40),
+            licenseUrl: isHttpsUrl(image.licenseUrl) ? String(image.licenseUrl).slice(0, 250) : ''
+          };
+        }
+        if (/^https:\/\/(?:upload|thumb)\.wikimedia\.org\//.test(url)
+          && /^https:\/\/ja\.wikipedia\.org\/wiki\//.test(article)) {
+          return { url, article, title, source: 'wikipedia' };
+        }
+        return null;
+      }
       function load() {
         try {
           const saved = JSON.parse(localStorage.getItem(key) || '[]');
@@ -392,10 +418,9 @@
             id: String(x.id || makeId()), subject: x.subject, topic: x.topic,
             reviews: Array.isArray(x.reviews) ? x.reviews.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : [],
             priority: ['low', 'medium', 'high'].includes(x.priority) ? x.priority : 'medium',
-            image: x.image && typeof x.image === 'object' && /^https:\/\/(?:upload|thumb)\.wikimedia\.org\//.test(x.image.url || '') && /^https:\/\/ja\.wikipedia\.org\/wiki\//.test(x.image.article || '')
-              ? { url: String(x.image.url), article: String(x.image.article), title: String(x.image.title || x.topic).slice(0, 140) }
-              : null,
+            image: normalizeStoredImage(x.image, x.topic),
             imageLookupAt: Number.isFinite(Number(x.imageLookupAt)) && x.imageLookupAt != null ? Number(x.imageLookupAt) : 0,
+            imageSearchVersion: Number.isFinite(Number(x.imageSearchVersion)) && x.imageSearchVersion != null ? Math.max(0, Math.floor(Number(x.imageSearchVersion))) : 0,
             createdAt: Number.isFinite(Number(x.createdAt)) && x.createdAt != null ? Number(x.createdAt) : Date.now() - (saved.length - index) * 1000,
             customOrder: Number.isFinite(Number(x.customOrder)) && x.customOrder != null ? Number(x.customOrder) : index
           })) : [];
@@ -451,13 +476,25 @@
       }
       function playTap() {
         withAudio(context => {
-          playTone(context, 587.33, 0, 0.055, 0.065, 'sine');
-          playTone(context, 880, 0.004, 0.04, 0.014, 'sine');
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          const start = context.currentTime;
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(1880, start);
+          oscillator.frequency.exponentialRampToValueAtTime(1120, start + 0.045);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.032, start + 0.004);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.052);
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + 0.06);
+          playTone(context, 2380, 0.001, 0.026, 0.004, 'sine');
         });
       }
       function playSlide() {
         withAudio(context => {
-          const length = Math.max(1, Math.floor(context.sampleRate * 0.105));
+          const length = Math.max(1, Math.floor(context.sampleRate * 0.09));
           const buffer = context.createBuffer(1, length, context.sampleRate);
           const data = buffer.getChannelData(0);
           for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
@@ -467,23 +504,23 @@
           const start = context.currentTime;
           source.buffer = buffer;
           filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(1050, start);
-          filter.frequency.exponentialRampToValueAtTime(520, start + 0.1);
+          filter.frequency.setValueAtTime(900, start);
+          filter.frequency.exponentialRampToValueAtTime(430, start + 0.085);
           filter.Q.setValueAtTime(0.5, start);
           gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(0.055, start + 0.018);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.105);
+          gain.gain.exponentialRampToValueAtTime(0.026, start + 0.016);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
           source.connect(filter);
           filter.connect(gain);
           gain.connect(context.destination);
           source.start(start);
-          source.stop(start + 0.11);
+          source.stop(start + 0.095);
         });
       }
       function playFanfare() {
         withAudio(context => [523.25, 659.25, 783.99].forEach((frequency, index) => {
-          playTone(context, frequency, index * 0.09, 0.17, 0.018, 'triangle');
-          playTone(context, frequency * 2, index * 0.09, 0.13, 0.003, 'sine');
+          playTone(context, frequency, index * 0.09, 0.17, 0.011, 'triangle');
+          playTone(context, frequency * 2, index * 0.09, 0.13, 0.0015, 'sine');
         }));
       }
       function showToast(message) {
@@ -492,32 +529,122 @@
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2600);
       }
-      async function findRelatedImage(topic) {
+      function imageSearchQuery(topic) {
+        const original = String(topic || '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+        const simplified = original.replace(/(?:の)?(?:順序|流れ|内容|特徴|原因|結果|覚え方|ポイント|まとめ|について|とは)$/u, '').trim();
+        return simplified.length >= 2 ? simplified : original;
+      }
+      function compactImageText(value) {
+        return String(value || '').normalize('NFKC').toLocaleLowerCase('ja').replace(/[\s\p{P}\p{S}]+/gu, '');
+      }
+      function imageTextScore(query, candidate) {
+        const wanted = compactImageText(query);
+        const text = compactImageText(candidate);
+        if (!wanted || !text) return 0;
+        if (wanted === text || text.includes(wanted)) return 1;
+        const wantedChars = Array.from(wanted);
+        const textChars = Array.from(text);
+        if (wanted.includes(text) && textChars.length >= Math.min(4, wantedChars.length)) {
+          return 0.62 + 0.28 * (textChars.length / wantedChars.length);
+        }
+        const bigrams = chars => chars.length === 1 ? [chars[0]] : chars.slice(0, -1).map((char, index) => char + chars[index + 1]);
+        const wantedGrams = new Set(bigrams(wantedChars));
+        const textGrams = new Set(bigrams(textChars));
+        let overlap = 0;
+        wantedGrams.forEach(gram => { if (textGrams.has(gram)) overlap++; });
+        return 2 * overlap / Math.max(1, wantedGrams.size + textGrams.size);
+      }
+      async function findWikipediaMatch(topic) {
+        const query = imageSearchQuery(topic);
         const params = new URLSearchParams({
-          action: 'query', generator: 'search', gsrsearch: topic, gsrnamespace: '0', gsrlimit: '8',
-          prop: 'pageimages', piprop: 'thumbnail', pithumbsize: '180',
+          action: 'query', generator: 'search', gsrsearch: query, gsrnamespace: '0', gsrlimit: '10',
+          prop: 'pageimages|pageprops', piprop: 'thumbnail|name', pithumbsize: '180',
           format: 'json', origin: '*'
         });
         const response = await fetch(`https://ja.wikipedia.org/w/api.php?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
-        if (!response.ok) throw new Error('image lookup failed');
+        if (!response.ok) throw new Error('Wikipedia image lookup failed');
         const data = await response.json();
-        if (data.error) throw new Error(data.error.info || 'image lookup failed');
-        const pages = Object.values(data.query?.pages || {}).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-        for (const page of pages) {
+        if (data.error) throw new Error(data.error.info || 'Wikipedia image lookup failed');
+        const pages = Object.values(data.query?.pages || {}).map(page => ({
+          page,
+          titleScore: imageTextScore(query, page.title),
+          fileScore: imageTextScore(query, page.pageimage)
+        })).filter(result => result.titleScore >= 0.76)
+          .sort((a, b) => (b.titleScore + b.fileScore * 0.24) - (a.titleScore + a.fileScore * 0.24) || (a.page.index ?? 0) - (b.page.index ?? 0));
+        for (const { page } of pages) {
           const url = page.thumbnail?.source;
           if (!url || !/^https:\/\/(?:upload|thumb)\.wikimedia\.org\//.test(url)) continue;
+          const title = String(page.title || query).slice(0, 140);
           return {
-            url,
-            title: String(page.title || topic).slice(0, 140),
-            article: `https://ja.wikipedia.org/wiki/${encodeURIComponent(String(page.title || topic).replaceAll(' ', '_'))}`
+            wikidataId: pages[0]?.page.pageprops?.wikibase_item || '',
+            image: {
+              url,
+              title,
+              article: `https://ja.wikipedia.org/wiki/${encodeURIComponent(String(page.title || query).replaceAll(' ', '_'))}`,
+              source: 'wikipedia'
+            }
           };
         }
-        return null;
+        return { wikidataId: pages[0]?.page.pageprops?.wikibase_item || '', image: null };
+      }
+      async function findEnglishWikidataLabel(id) {
+        if (!/^Q\d+$/.test(String(id || ''))) return '';
+        const params = new URLSearchParams({ action: 'wbgetentities', ids: id, props: 'labels', languages: 'en', format: 'json', origin: '*' });
+        const response = await fetch(`https://www.wikidata.org/w/api.php?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+        if (!response.ok) throw new Error('Wikidata lookup failed');
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.info || 'Wikidata lookup failed');
+        return String(data.entities?.[id]?.labels?.en?.value || '').trim();
+      }
+      async function findOpenverseImage(topic) {
+        const query = imageSearchQuery(topic);
+        const params = new URLSearchParams({ q: query, page_size: '20', mature: 'false' });
+        const response = await fetch(`https://api.openverse.org/v1/images/?${params}`, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+        if (!response.ok) throw new Error('Openverse image lookup failed');
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.detail || 'Openverse image lookup failed');
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const candidates = (data.results || []).map(result => {
+          const tags = Array.isArray(result.tags) ? result.tags.map(tag => typeof tag === 'string' ? tag : tag.name || '') : [];
+          const titleScore = imageTextScore(query, result.title);
+          const tagScore = Math.max(0, ...tags.map(tag => imageTextScore(query, tag)));
+          const relevance = Math.max(titleScore, tagScore * 0.9);
+          const id = String(result.id || '');
+          const article = String(result.foreign_landing_url || '');
+          if (!uuidPattern.test(id) || !isHttpsUrl(article) || relevance < 0.76 || (titleScore < 0.76 && tagScore < 0.9)) return null;
+          return {
+            relevance,
+            image: {
+              url: `https://api.openverse.org/v1/images/${id}/thumb/`,
+              article,
+              title: String(result.title || query).slice(0, 140),
+              source: 'openverse',
+              creator: String(result.creator || '').slice(0, 100),
+              license: String(result.license || '').slice(0, 40),
+              licenseUrl: isHttpsUrl(result.license_url) ? String(result.license_url).slice(0, 250) : ''
+            }
+          };
+        }).filter(Boolean).sort((a, b) => b.relevance - a.relevance);
+        return candidates[0]?.image || null;
+      }
+      async function findRelatedImage(topic) {
+        let wikipedia = null;
+        try {
+          wikipedia = await findWikipediaMatch(topic);
+          if (wikipedia?.image) return wikipedia.image;
+        } catch {}
+        const isJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(topic);
+        let englishQuery = '';
+        try { englishQuery = await findEnglishWikidataLabel(wikipedia?.wikidataId); }
+        catch {}
+        const query = englishQuery || (!isJapanese ? imageSearchQuery(topic) : '');
+        return query ? findOpenverseImage(query) : null;
       }
       async function requestRelatedImage(id, automatic = false) {
         if (imageRequests.has(id)) return imageRequests.get(id);
         const item = entries.find(entry => entry.id === id);
         if (!item) return;
+        const isRecheckingOldImage = item.imageSearchVersion < IMAGE_SEARCH_VERSION;
         const request = (async () => {
           item.imageLoading = true;
           updateImageMarkup(item);
@@ -526,8 +653,13 @@
             if (!entries.includes(item)) return;
             item.imageLookupAt = Date.now();
             if (image) item.image = image;
+            else if (isRecheckingOldImage) item.image = null;
+            item.imageSearchVersion = IMAGE_SEARCH_VERSION;
             persist();
-            if (!automatic) showToast(image ? `「${image.title}」の画像を追加したよ` : '関連画像が見つからなかった');
+            if (!automatic) {
+              const source = image?.source === 'openverse' ? 'Openverse' : 'Wikipedia';
+              showToast(image ? `「${image.title}」を${source}から追加したよ` : '関連画像が見つからなかった');
+            }
           } catch {
             if (entries.includes(item)) {
               item.imageLookupAt = Date.now();
@@ -549,7 +681,7 @@
       }
       function queueMissingImages() {
         entries.forEach(item => {
-          if (!item.image && !item.imageLookupAt && !queuedImageIds.has(item.id)) {
+          if ((item.imageSearchVersion < IMAGE_SEARCH_VERSION || (!item.image && !item.imageLookupAt)) && !queuedImageIds.has(item.id)) {
             imageQueue.push(item.id);
             queuedImageIds.add(item.id);
           }
@@ -562,9 +694,9 @@
           const id = imageQueue.shift();
           queuedImageIds.delete(id);
           const item = entries.find(entry => entry.id === id);
-          if (item && !item.image && !item.imageLookupAt) {
+          if (item && (item.imageSearchVersion < IMAGE_SEARCH_VERSION || (!item.image && !item.imageLookupAt))) {
             await requestRelatedImage(id, true);
-            if (imageQueue.length) await new Promise(resolve => setTimeout(resolve, 180));
+            if (imageQueue.length) await new Promise(resolve => setTimeout(resolve, 400));
           }
         }
         imageQueueRunning = false;
@@ -732,12 +864,17 @@
         const id = escapeText(item.id);
         if (item.image) {
           const title = escapeText(item.image.title);
+          const source = item.image.source === 'openverse' ? 'Openverse' : 'Wikipedia';
+          const attribution = item.image.source === 'openverse'
+            ? [item.image.creator, item.image.license ? item.image.license.toUpperCase() : ''].filter(Boolean).join(' · ')
+            : '';
+          const linkLabel = escapeText(`${source}: ${item.image.title}${attribution ? ` — ${attribution}` : ''}`);
           return `<span class="topic-visual">
-            <a class="topic-image-link" href="${escapeText(item.image.article)}" target="_blank" rel="noopener noreferrer" title="Wikipedia: ${title}"><img src="${escapeText(item.image.url)}" alt="${title}" loading="lazy" decoding="async"></a>
+            <a class="topic-image-link" href="${escapeText(item.image.article)}" target="_blank" rel="noopener noreferrer" aria-label="${linkLabel}" title="${linkLabel}"><img src="${escapeText(item.image.url)}" alt="${title}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>
             <button class="topic-image-refresh" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の画像を探し直す" title="別の画像を探す" ${item.imageLoading ? 'disabled aria-busy="true"' : ''}>${item.imageLoading ? '<span class="image-spinner" aria-hidden="true"></span>' : '↻'}</button>
           </span>`;
         }
-        return `<button class="topic-image-button" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の関連画像を探す" title="Wikipediaから画像を取得" ${item.imageLoading ? 'disabled aria-busy="true"' : ''}>
+        return `<button class="topic-image-button" type="button" data-image-id="${id}" aria-label="${escapeText(item.topic)}の関連画像を探す" title="関連画像を検索" ${item.imageLoading ? 'disabled aria-busy="true"' : ''}>
           ${item.imageLoading ? '<span class="image-spinner" aria-hidden="true"></span>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m4 17 5-5 3.2 3.2 2.3-2.3L20 18"></path></svg>'}
         </button>`;
       }
@@ -919,3 +1056,4 @@
   </script>
 </body>
 </html>
+

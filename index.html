@@ -431,10 +431,11 @@
         const oscillator = context.createOscillator();
         const gain = context.createGain();
         const start = context.currentTime + offset;
+        const attack = Math.min(0.014, duration * 0.35);
         oscillator.type = type;
         oscillator.frequency.setValueAtTime(frequency, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(volume, start + 0.008);
+        gain.gain.exponentialRampToValueAtTime(volume, start + attack);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
         oscillator.connect(gain);
         gain.connect(context.destination);
@@ -442,11 +443,14 @@
         oscillator.stop(start + duration + 0.01);
       }
       function playTap() {
-        withAudio(context => playTone(context, 880, 0, 0.028, 0.035));
+        withAudio(context => {
+          playTone(context, 587.33, 0, 0.055, 0.065, 'sine');
+          playTone(context, 880, 0.004, 0.04, 0.014, 'sine');
+        });
       }
       function playSlide() {
         withAudio(context => {
-          const length = Math.max(1, Math.floor(context.sampleRate * 0.075));
+          const length = Math.max(1, Math.floor(context.sampleRate * 0.105));
           const buffer = context.createBuffer(1, length, context.sampleRate);
           const data = buffer.getChannelData(0);
           for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
@@ -455,23 +459,24 @@
           const gain = context.createGain();
           const start = context.currentTime;
           source.buffer = buffer;
-          filter.type = 'bandpass';
-          filter.frequency.setValueAtTime(1500, start);
-          filter.Q.setValueAtTime(0.7, start);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1050, start);
+          filter.frequency.exponentialRampToValueAtTime(520, start + 0.1);
+          filter.Q.setValueAtTime(0.5, start);
           gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(0.025, start + 0.012);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.075);
+          gain.gain.exponentialRampToValueAtTime(0.055, start + 0.018);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.105);
           source.connect(filter);
           filter.connect(gain);
           gain.connect(context.destination);
           source.start(start);
-          source.stop(start + 0.08);
+          source.stop(start + 0.11);
         });
       }
       function playFanfare() {
-        withAudio(context => [659.25, 783.99, 987.77].forEach((frequency, index) => {
-          playTone(context, frequency, index * 0.075, 0.14, 0.035, 'sawtooth');
-          playTone(context, frequency * 2, index * 0.075, 0.11, 0.008, 'triangle');
+        withAudio(context => [523.25, 659.25, 783.99].forEach((frequency, index) => {
+          playTone(context, frequency, index * 0.09, 0.17, 0.018, 'triangle');
+          playTone(context, frequency * 2, index * 0.09, 0.13, 0.003, 'sine');
         }));
       }
       function showToast(message) {

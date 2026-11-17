@@ -76,6 +76,10 @@
     .list-tools { display: flex; gap: 8px; }
     .list-tools select { width: 180px; height: 38px; border-radius: 10px; font-size: 12px; }
     .search { width: 220px; height: 38px; border-radius: 10px; padding: 0 12px; }
+    .search[hidden] { display: none !important; }
+    .search-toggle { display: grid; place-items: center; width: 40px; height: 38px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #59635e; }
+    .search-toggle:hover, .search-toggle[aria-expanded="true"] { background: var(--green-pale); color: var(--green-dark); border-color: #d2e1d5; }
+    .search-toggle svg { width: 18px; height: 18px; }
     .filters { display: flex; gap: 7px; overflow-x: auto; padding: 0 0 13px; scrollbar-width: none; }
     .filters::-webkit-scrollbar { display: none; }
     .filter { flex: 0 0 auto; border: 1px solid var(--line); color: #67706c; background: transparent; border-radius: 999px; padding: 7px 12px; font-size: 12px; }
@@ -113,6 +117,13 @@
     .delete-btn { display: none; position: absolute; top: 7px; right: 8px; border: 0; background: transparent; color: #9a5a53; font-size: 11px; line-height: 1; padding: 6px 8px; }
     .item { position: relative; }
     .item:hover .delete-btn, .delete-btn:focus-visible { display: block; }
+    .confetti-layer { position: absolute; z-index: 4; inset: 0; overflow: hidden; pointer-events: none; }
+    .confetti-piece { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: calc(var(--size) * .58); border-radius: 2px; background: var(--color); opacity: 0; animation: confetti-burst var(--duration) cubic-bezier(.15,.7,.25,1) var(--delay) forwards; }
+    @keyframes confetti-burst {
+      0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(.5); }
+      12% { opacity: 1; }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--turn)) scale(1); }
+    }
     .undo-banner { position: fixed; z-index: 10; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 18px; width: min(520px, calc(100% - 24px)); padding: 12px 14px; transform: translateX(-50%); border-radius: 14px; background: #26332e; color: #fff; box-shadow: 0 12px 32px rgba(24,34,29,.22); font-size: 13px; }
     .undo-banner span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .undo-banner[hidden] { display: none; }
@@ -125,9 +136,16 @@
       .shell { width: min(100% - 24px, 560px); padding: calc(22px + env(safe-area-inset-top)) 0 calc(42px + env(safe-area-inset-bottom)); }
       header { display: block; margin-bottom: 20px; }
       .local-note { display: inline-block; margin-top: 13px; }
-      .progress-grid { grid-template-columns: 1fr; gap: 7px; }
-      .progress-card { padding: 12px 13px; }
-      .progress-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .subject-progress { margin-bottom: 16px; }
+      .progress-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+      .progress-card { padding: 8px 9px; border-radius: 11px; }
+      .progress-heading { align-items: baseline; flex-direction: row; gap: 4px; margin-bottom: 7px; }
+      .progress-heading h2 { font-size: 14px; }
+      .progress-heading p, .progress-foot { display: none; }
+      .progress-top { display: block; }
+      .progress-subject { font-size: 10px; line-height: 1.35; }
+      .progress-left { margin-top: 3px; font-size: 10px; }
+      .progress-track { height: 5px; margin-top: 6px; }
       .composer { padding: 14px; }
       .composer-top { align-items: flex-start; flex-direction: column; gap: 8px; }
       select { max-width: none; width: 100%; height: 46px; }
@@ -135,7 +153,10 @@
       .add-btn { padding: 0 14px; }
       .list-head { align-items: stretch; flex-direction: column; gap: 10px; }
       .list-tools { flex-direction: column; }
-      .list-tools select, .search { width: 100%; height: 44px; }
+      .list-tools { flex-wrap: wrap; }
+      .list-tools select { width: auto; flex: 1; height: 44px; }
+      .search { width: 100%; height: 44px; order: 2; }
+      .search-toggle { width: 44px; height: 44px; }
       .filter { padding: 9px 13px; }
       .item { grid-template-columns: minmax(0,1fr) auto; gap: 9px 10px; padding: 13px 12px; }
       .item-main { grid-column: 1 / 3; padding-right: 22px; }
@@ -152,6 +173,10 @@
       .priority-option { min-width: 54px; height: 40px; }
       .undo-banner { bottom: calc(10px + env(safe-area-inset-bottom)); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .confetti-piece { animation-duration: 1ms; }
+      .item { transition: none; }
+    }
   </style>
 </head>
 <body>
@@ -160,9 +185,7 @@
       <div>
         <p class="eyebrow">EXAM REVIEW</p>
         <h1>復習ストック</h1>
-        <p class="subtitle">苦手ポイントを短くストック。復習したら1タップ。</p>
       </div>
-      <div class="local-note">このブラウザに自動保存</div>
     </header>
 
     <section class="subject-progress" aria-label="科目ごとの復習進捗">
@@ -190,12 +213,11 @@
         <input id="topic-input" class="topic-input" type="text" maxlength="160" autocomplete="off" placeholder="例：条約改正の順序" aria-label="復習ポイント">
         <button class="add-btn" type="submit">＋ 追加</button>
       </form>
-      <p class="hint">ひとこと入力して Enter でも追加できます。iPhoneはキーボードのマイクから音声入力できます。</p>
     </section>
 
     <section aria-label="復習項目一覧">
       <div class="list-head">
-        <div><h2 class="list-title">復習リスト</h2><p id="list-caption" class="list-caption">左スワイプで削除できます。取り消しもできます。</p></div>
+        <div><h2 class="list-title">復習リスト</h2></div>
         <div class="list-tools">
           <select id="sort-select" aria-label="リストの並び順">
             <option value="elapsed">日が空いた順</option>
@@ -203,14 +225,16 @@
             <option value="priority">優先度の高い順</option>
             <option value="custom">カスタム</option>
           </select>
-          <input id="search-input" class="search" type="search" placeholder="項目を検索" aria-label="項目を検索">
+          <button id="search-toggle" class="search-toggle" type="button" aria-label="検索を開く" aria-expanded="false" title="検索">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.3 4.3"></path></svg>
+          </button>
+          <input id="search-input" class="search" type="search" placeholder="項目を検索" aria-label="項目を検索" hidden>
         </div>
       </div>
       <nav id="filters" class="filters" aria-label="科目で絞り込み"></nav>
       <div id="items" class="items"></div>
-      <div id="empty" class="empty"><strong>まだ項目がありません</strong>思い出したタイミングで、ひとことだけ追加してみましょう。</div>
+      <div id="empty" class="empty"><strong>まだ項目がありません</strong>復習ポイントを追加しよう。</div>
     </section>
-    <footer>復習記録はこの端末・ブラウザ内に保存されます。</footer>
     <div id="undo-banner" class="undo-banner" role="status" aria-live="polite" hidden>
       <span id="undo-message">削除しました</span>
       <button id="undo-button" class="undo-button" type="button">元に戻す</button>
@@ -365,6 +389,27 @@
           }
         });
       }
+      function celebrateItem(id) {
+        const card = $('items').querySelector(`[data-item-id="${CSS.escape(id)}"]`);
+        const layer = card?.querySelector('.confetti-layer');
+        if (!layer) return;
+        const colors = ['#e7ad47', '#65a88a', '#e27e6d', '#74a8d1', '#b78ad1'];
+        for (let i = 0; i < 26; i++) {
+          const piece = document.createElement('i');
+          piece.className = 'confetti-piece';
+          piece.style.setProperty('--x', `${42 + Math.random() * 48}%`);
+          piece.style.setProperty('--y', `${25 + Math.random() * 55}%`);
+          piece.style.setProperty('--size', `${5 + Math.random() * 4}px`);
+          piece.style.setProperty('--color', colors[i % colors.length]);
+          piece.style.setProperty('--dx', `${(Math.random() - .5) * 130}px`);
+          piece.style.setProperty('--dy', `${-20 - Math.random() * 95}px`);
+          piece.style.setProperty('--turn', `${Math.random() * 720 - 360}deg`);
+          piece.style.setProperty('--duration', `${760 + Math.random() * 420}ms`);
+          piece.style.setProperty('--delay', `${Math.random() * 90}ms`);
+          layer.appendChild(piece);
+        }
+        setTimeout(() => layer.replaceChildren(), 1500);
+      }
       function renderSubjectProgress() {
         $('subject-progress').innerHTML = subjects.map(subject => {
           const group = entries.filter(e => e.subject === subject);
@@ -386,9 +431,6 @@
         renderFilters();
         renderSubjectProgress();
         $('sort-select').value = activeSort;
-        $('list-caption').textContent = activeSort === 'custom'
-          ? '左のハンドルをドラッグして並べ替え。左スワイプで削除できます。'
-          : '左スワイプで削除できます。取り消しもできます。';
         const query = $('search-input').value.trim().toLocaleLowerCase();
         const visible = entries.filter(e => (activeSubject === 'すべて' || e.subject === activeSubject) && (!query || `${e.topic} ${e.subject}`.toLocaleLowerCase().includes(query)))
           .sort((a,b) => {
@@ -402,6 +444,7 @@
           const lamps = [0,1,2].map(i => `<i class="lamp ${i < Math.min(3, count) ? 'on' : ''}"></i>`).join('');
           return `
           <article class="item ${activeSort === 'custom' ? 'custom-sort' : ''}" data-item-id="${escapeText(e.id)}">
+            <div class="confetti-layer" aria-hidden="true"></div>
             <button type="button" class="drag-handle" aria-label="${escapeText(e.topic)}を並べ替え">⠿</button>
             <div class="item-main"><div class="item-top">
               <span class="subject">${escapeText(e.subject)}</span>
@@ -425,12 +468,14 @@
         }).join('');
         $('empty').classList.toggle('visible', visible.length === 0);
         $('empty').innerHTML = entries.length === 0
-          ? '<strong>まだ項目がありません</strong>思い出したタイミングで、ひとことだけ追加してみましょう。'
+          ? '<strong>まだ項目がありません</strong>復習ポイントを追加しよう。'
           : '<strong>見つかりませんでした</strong>検索語や科目を変えてみてください。';
         $('items').querySelectorAll('[data-review]').forEach(btn => btn.addEventListener('click', () => {
           const item = entries.find(e => e.id === btn.dataset.review);
           if (!item) return;
+          const reachesTarget = item.reviews.length === 2;
           item.reviews.push(todayKey()); persist(); render();
+          if (reachesTarget) celebrateItem(item.id);
         }));
         $('items').querySelectorAll('[data-priority-id]').forEach(select => select.addEventListener('change', () => {
           const item = entries.find(e => e.id === select.dataset.priorityId);
@@ -460,6 +505,19 @@
       }));
       $('sort-select').addEventListener('change', () => { activeSort = $('sort-select').value; render(); });
       $('search-input').addEventListener('input', render);
+      $('search-toggle').addEventListener('click', () => {
+        const input = $('search-input');
+        const toggle = $('search-toggle');
+        const open = input.hidden;
+        input.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? '検索を閉じる' : '検索を開く');
+        if (open) input.focus();
+        else { input.value = ''; render(); }
+      });
+      $('search-input').addEventListener('keydown', event => {
+        if (event.key === 'Escape') $('search-toggle').click();
+      });
       $('undo-button').addEventListener('click', () => {
         const action = undoStack.pop();
         if (!action) return;
